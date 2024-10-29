@@ -6,7 +6,7 @@
   "name": "halla_measurement_1",
   "author": "",
   "singleInstance": false,
-  "environment": "Production",
+  "environment": "Development",
   "build": {
     "appId": "com.halla_measurement_1.app",
     "productName": "halla_measurement_1",

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Model Setup</title>
+    <link href="../css/output.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Model Setup</h1>
+        
+        <!-- Model Creation Form -->
+        <form id="modelForm" class="space-y-4">
+            <div>
+                <label>Model Code:</label>
+                <input type="text" id="modelCode" class="border p-2" required>
+            </div>
+            <div>
+                <label>Model Name:</label>
+                <input type="text" id="modelName" class="border p-2" required>
+            </div>
+            <div>
+                <label>Description:</label>
+                <textarea id="description" class="border p-2"></textarea>
+            </div>
+            <div>
+                <label>Images:</label>
+                <input type="file" id="images" multiple accept="image/*">
+            </div>
+            
+            <!-- Dynamic Specifications -->
+            <div id="specifications" class="space-y-2">
+                <h2 class="text-xl">Specifications</h2>
+                <button type="button" onclick="addSpecification()" class="btn btn-primary">
+                    Add Specification
+                </button>
+            </div>
+            
+            <button type="submit" class="btn btn-success">Save Model</button>
+        </form>
+    </div>
+
+    <script>
+        function addSpecification() {
+            const specDiv = document.createElement('div');
+            specDiv.className = 'specification-group border p-2';
+            specDiv.innerHTML = `
+                <input type="text" placeholder="Spec Name (e.g. TS1)" class="border p-1">
+                <input type="number" placeholder="Min Value" class="border p-1">
+                <input type="number" placeholder="Max Value" class="border p-1">
+                <input type="text" placeholder="Unit" class="border p-1">
+                <button type="button" onclick="this.parentElement.remove()" class="btn btn-danger">
+                    Remove
+                </button>
+            `;
+            document.getElementById('specifications').appendChild(specDiv);
+        }
+    </script>
+</body>
+</html> 

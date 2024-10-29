@@ -1,13 +1,29 @@
 using ElectronNET.API;
 using ElectronNET.API.Entities;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add SQLite database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=measurements.db";
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(connectionString));
 
 // Register MVC services
 builder.Services.AddControllersWithViews();
 
+// Add Electron IPC Service
+builder.Services.AddElectron();
+
+// Add ElectronController service registration
+builder.Services.AddScoped<ElectronController>();
+
 // Integrate Electron.NET into the WebHost
 builder.WebHost.UseElectron(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole(); // Enable console logging
+builder.Logging.AddDebug();
 
 var app = builder.Build();
 
@@ -34,11 +50,18 @@ if (HybridSupport.IsElectronActive)
 {
     app.Lifetime.ApplicationStarted.Register(async () =>
     {
+        Console.WriteLine("Electron application starting...");
         var window = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
         {
             Width = 800,
             Height = 600,
-            Show = false // Initially hide the window
+            Show = false,
+            WebPreferences = new WebPreferences
+            {
+                NodeIntegration = false,
+                ContextIsolation = true,
+                Preload = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "preload.js")
+            }
         });
 
         // Show the window once it's ready to prevent flickering
@@ -47,8 +70,26 @@ if (HybridSupport.IsElectronActive)
         // Close the application when the window is closed
         window.OnClosed += () => Electron.App.Quit();
 
-        // Load the main page from the wwwroot folder
-        window.LoadURL($"file://{System.IO.Path.Combine(app.Environment.ContentRootPath, "wwwroot/index.html")}");
+        try 
+        {
+            Console.WriteLine("Setting up IPC...");
+            using (var scope = app.Services.CreateScope())
+            {
+                var controller = scope.ServiceProvider.GetRequiredService<ElectronController>();
+                controller.SetupIPC(window);
+            }
+            Console.WriteLine("IPC setup complete");
+
+            // Load the main page from the wwwroot folder
+            Console.WriteLine("Loading main page...");
+            window.LoadURL($"file://{System.IO.Path.Combine(app.Environment.ContentRootPath, "wwwroot/index.html")}");
+            Console.WriteLine("Main page loaded");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during startup: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
     });
 }
 
