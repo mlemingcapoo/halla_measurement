@@ -1,0 +1,10 @@
+/* wwwroot/css/tailwind.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Add this to set the background color */
+html {
+    background-color: #ffffff; /* Or any other light color */
+}

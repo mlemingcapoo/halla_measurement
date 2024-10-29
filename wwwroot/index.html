@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color: #ffffff; color: black;">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Transformation Task</title>
+    <!-- Bootstrap CSS -->
+    <link href="./css/output.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- <div class="container-fluid grid grid-cols-12"> -->
+        <div class="header col-span-12 grid grid-cols-3 grid-rows-1 border border-black">
+            <div style="gap: 10px;"
+                class="logo p-2 col-span-1 flex justify-center items-center justify-content-start">
+                <img style="width: 50px; height: 30px;" src="./images/logo.png" alt="logo">
+                <span class="pl-3 font-bold">HALLA ELECTRONICS VINA</span>
+            </div>
+            <div class="main-title p-2 col-span-1 flex justify-center items-center">
+                <span class="text-2xl font-bold" style="text-align: center;">
+                    Digital Transformation Task
+                </span>
+            </div>
+            <div class="clock p-2 col-span-1 grid grid-cols-1 grid-rows-1" style="text-align: center;">
+                <span class="font-bold self-center">12:00:00<br>29/10/2024</span>
+                <!-- <span class="font-bold"></span> -->
+            </div>
+        </div>
+        <div class="content col-span-12 grid grid-cols-2 grid-rows-1">
+            <div class="images">
+                <div class="infos border grid grid-cols-4 grid-rows-1" style="text-align: center; font-size: 1.2rem;">
+                    <div class="info border border-black font-bold">Model</div>
+                    <div class="info border border-black font-bold">HUB-23</div>
+                    <div class="info border border-black font-bold">Total Product</div>
+                    <div class="info border border-black font-bold">1238</div>
+                </div>
+                <div class="image grid grid-cols-2 grid-rows-2">
+                    <div class="image-content">
+                        <img width="150%" height="100%" src="./images/model1.jpg" alt="image1">
+                    </div>
+                    <div class="image-content">
+                        <img src="./images/model2.jpg" alt="image2">
+                    </div>
+                    <div class="image-content">
+                        <img width="150%" height="100%" src="./images/model1.jpg" alt="image1">
+                    </div>
+                    <div class="image-content">
+                        <img src="./images/model2.jpg" alt="image2">
+                    </div>
+                </div>
+            </div>
+            <div class="">
+                <!-- generate a chart here -->
+                <canvas class="p-3" id="myChart" width="100%" height="40%"></canvas>
+            </div>
+        </div>
+        <div class="buttons col-span-12 grid-rows-1 flex justify-center">
+            <button style="font-size: 1.5rem;" class="btn btn-success mx-2 pt-0 pb-0 font-bold py-2 px-4 inline-flex items-center">Trang chủ</button>
+            <button style="font-size: 1.5rem;" class="btn btn-success mx-2 pt-0 pb-0 font-bold py-2 px-4 inline-flex items-center">Thiết lập</button>
+            <button style="font-size: 1.5rem;" class="btn btn-success mx-2 pt-0 pb-0 font-bold py-2 px-4 inline-flex items-center">Báo cáo</button>
+            <button style="font-size: 1.5rem;" class="btn btn-success mx-2 pt-0 pb-0 font-bold py-2 px-4 inline-flex items-center">Lịch sử</button>
+            <button style="font-size: 1.5rem;" class="btn btn-success mx-2 pt-0 pb-0 font-bold py-2 px-4 inline-flex items-center">Phần cứng</button>
+            <button style="font-size: 1.5rem;" class="btn btn-success mx-2 pt-0 pb-0 font-bold py-2 px-4 inline-flex items-center">Thoát</button>
+        </div>
+        <div class="data-table p-2 col-span-12">
+            <table class="table table-auto w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-900">
+                        <!-- Added font-bold and text-black -->
+                        <th class="border border-black p-2 text-left w-16 font-bold text-black">STT</th>
+                        <th class="border border-black p-2 text-left w-24 font-bold text-black">Model</th>
+                        <!-- Dynamic width for TS columns -->
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS1</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS2</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS3</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS4</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS5</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS6</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS7</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS8</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS9</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS10</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS11</th>
+                        <th class="border border-black p-2 text-left w-20 font-bold text-black">TS12</th>
+                        <th class="border border-black p-2 text-left w-32 font-bold text-black">Thời gian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="hover:bg-gray-50">
+                        <!-- Changed border styles for cells -->
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">1</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">HUB-23</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71.59</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71.5</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">71</td>
+                        <td class="border border-black p-2 whitespace-nowrap font-bold text-black">17:23:00 - 23-07-2024</td>
+                        <!-- ... other cells ... -->
+                    </tr>
+                    <!-- ... other rows ... -->
+                </tbody>
+            </table>
+        </div>
+    <!-- </div> -->
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Get the canvas element
+        const ctx = document.getElementById('myChart').getContext('2d');
+        
+        // Create a new chart
+        const myChart = new Chart(ctx, {
+            type: 'line', // You can change this to: bar, pie, etc.
+            data: {
+                labels: ['TS1', 'TS2', 'TS3', 'TS4', 'TS5', 'TS6', 'TS7', 'TS8', 'TS9', 'TS10', 'TS11', 'TS12'],
+                datasets: [{
+                    label: 'Test Values',
+                    data: [71.59, 71.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Example data matching your table
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
