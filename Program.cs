@@ -7,7 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=measurements.db";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseSqlite(connectionString), 
+    ServiceLifetime.Scoped);
 
 // Register MVC services
 builder.Services.AddControllersWithViews();

@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Models
 {
     public class Model
     {
+        [Key]
         public int ModelId { get; set; }
         public string ModelCode { get; set; } = string.Empty;
         public string ModelName { get; set; } = string.Empty;
