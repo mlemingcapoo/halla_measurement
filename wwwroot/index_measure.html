@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product & Measurement Management</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .crud-panel {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .table {
+            margin-top: 20px;
+        }
+        .btn-success { margin: 2px; }
+        .btn-warning { margin: 2px; }
+        .btn-danger { margin: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Product & Measurement Management</h1>
+
+        <!-- Products Section -->
+        <div class="section">
+            <h2>Products</h2>
+            <div class="crud-panel">
+                <button onclick="showCreateProductModal()" class="btn btn-success">Create New Product</button>
+                <button onclick="refreshProducts()" class="btn btn-warning">Refresh Products</button>
+            </div>
+
+            <table class="table table-bordered table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Model</th>
+                        <th>Status</th>
+                        <th>Measurement Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    <!-- Products will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Measurements Section -->
+        <div class="section">
+            <h2>Measurements</h2>
+            <div class="crud-panel">
+                <button onclick="showCreateMeasurementModal()" class="btn btn-success">Create New Measurement</button>
+                <button onclick="refreshMeasurements()" class="btn btn-warning">Refresh Measurements</button>
+            </div>
+
+            <table class="table table-bordered table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Product</th>
+                        <th>Specification</th>
+                        <th>Value</th>
+                        <th>Within Spec</th>
+                        <th>Measured At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="measurementTableBody">
+                    <!-- Measurements will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create Product Modal -->
+    <div class="modal fade" id="createProductModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="modelSelect" class="form-label">Select Model:</label>
+                        <select id="modelSelect" class="form-select" required>
+                            <!-- Models will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="productStatus" class="form-label">Status:</label>
+                        <select id="productStatus" class="form-select">
+                            <option value="Pending">Pending</option>
+                            <option value="Pass">Pass</option>
+                            <option value="Fail">Fail</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="measurementDate" class="form-label">Measurement Date:</label>
+                        <input type="datetime-local" id="measurementDate" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button onclick="createProduct()" class="btn btn-success">Create Product</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Measurement Modal -->
+    <div class="modal fade" id="createMeasurementModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Measurement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="productSelect" class="form-label">Select Product:</label>
+                        <select id="productSelect" class="form-select" required onchange="loadSpecificationsForProduct()">
+                            <!-- Products will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="specSelect" class="form-label">Select Specification:</label>
+                        <select id="specSelect" class="form-select" required>
+                            <!-- Specs will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="measurementValue" class="form-label">Value:</label>
+                        <input type="number" id="measurementValue" class="form-control" required step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="measurementDateTime" class="form-label">Measurement Date/Time:</label>
+                        <input type="datetime-local" id="measurementDateTime" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button onclick="createMeasurement()" class="btn btn-success">Create Measurement</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/product-service.js"></script>
+    <script src="js/model-service.js"></script>
+    <script src="js/model-spec-service.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Update modal functions to use Bootstrap
+        function showModal(modalId) {
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+        }
+
+        function closeModal(modalId) {
+            const modalElement = document.getElementById(modalId);
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            modal.hide();
+        }
+
+        // Update button classes in refreshProducts()
+        async function refreshProducts() {
+            try {
+                const products = await ProductService.getAllProducts();
+                const tbody = document.getElementById('productTableBody');
+                tbody.innerHTML = '';
+
+                for (const product of products) {
+                    const row = `
+                        <tr>
+                            <td>${product.ProductId}</td>
+                            <td>${product.ModelCode} - ${product.ModelName}</td>
+                            <td>${product.Status}</td>
+                            <td>${new Date(product.MeasurementDate).toLocaleString()}</td>
+                            <td>
+                                <button onclick="updateProductStatus(${product.ProductId})" class="btn btn-warning btn-sm">
+                                    Update Status
+                                </button>
+                                <button onclick="deleteProduct(${product.ProductId})" class="btn btn-danger btn-sm">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                }
+            } catch (error) {
+                console.error('Error refreshing products:', error);
+                alert('Error refreshing products: ' + error.message);
+            }
+        }
+
+        // Update button classes in refreshMeasurements()
+        async function refreshMeasurements() {
+            try {
+                const measurements = await ProductService.getAllMeasurements();
+                console.log('Fetched measurements:', measurements);
+                
+                const tbody = document.getElementById('measurementTableBody');
+                tbody.innerHTML = '';
+
+                if (!measurements || measurements.length === 0) {
+                    console.log('No measurements found');
+                    return;
+                }
+
+                measurements.forEach(m => {
+                    console.log('Processing measurement:', m);
+                    const row = `
+                        <tr>
+                            <td>${m.MeasurementId}</td>
+                            <td>${m.ProductId} - ${m.ModelCode || ''}</td>
+                            <td>${m.SpecName || ''}</td>
+                            <td>${m.Value || m.MeasuredValue} ${m.Unit || ''}</td>
+                            <td class="${m.IsWithinSpec ? 'text-success' : 'text-danger'}">
+                                ${m.IsWithinSpec ? '✓' : '✗'}
+                            </td>
+                            <td>${new Date(m.MeasurementDate || m.MeasuredAt).toLocaleString()}</td>
+                            <td>
+                                <button onclick="deleteMeasurement(${m.MeasurementId})" class="btn btn-danger btn-sm">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error('Error refreshing measurements:', error);
+                alert('Error refreshing measurements: ' + error.message);
+            }
+        }
+
+        // Keep the rest of your JavaScript functions unchanged
+        // ... (rest of the script remains the same)
+
+        async function showCreateProductModal() {
+            try {
+                // Load models into the select
+                const models = await ModelService.getAllModels();
+                const modelSelect = document.getElementById('modelSelect');
+                modelSelect.innerHTML = models.map(model => 
+                    `<option value="${model.ModelId}">${model.ModelCode} - ${model.ModelName}</option>`
+                ).join('');
+                
+                // Show the modal
+                showModal('createProductModal');
+            } catch (error) {
+                console.error('Error loading models:', error);
+                alert('Error loading models: ' + error.message);
+            }
+        }
+
+        async function showCreateMeasurementModal() {
+            try {
+                // Load products into the select
+                const products = await ProductService.getAllProducts();
+                const productSelect = document.getElementById('productSelect');
+                productSelect.innerHTML = products.map(product => 
+                    `<option value="${product.ProductId}">${product.ProductId} - ${product.ModelCode}</option>`
+                ).join('');
+                
+                // Load specifications for the first product
+                if (products.length > 0) {
+                    await loadSpecificationsForProduct();
+                }
+                
+                // Show the modal
+                showModal('createMeasurementModal');
+            } catch (error) {
+                console.error('Error loading products:', error);
+                alert('Error loading products: ' + error.message);
+            }
+        }
+
+        async function loadSpecificationsForProduct() {
+            try {
+                const productId = document.getElementById('productSelect').value;
+                const product = (await ProductService.getAllProducts())
+                    .find(p => p.ProductId === parseInt(productId));
+                
+                if (!product) throw new Error('Product not found');
+
+                const specs = await ModelSpecificationService.getSpecifications(product.ModelId);
+                const specSelect = document.getElementById('specSelect');
+                specSelect.innerHTML = specs.map(spec => 
+                    `<option value="${spec.SpecId}">${spec.SpecName} (${spec.MinValue}-${spec.MaxValue} ${spec.Unit || ''})</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Error loading specifications:', error);
+                alert('Error loading specifications: ' + error.message);
+            }
+        }
+
+        async function createProduct() {
+            try {
+                const modelId = document.getElementById('modelSelect').value;
+                const status = document.getElementById('productStatus').value;
+                const measurementDate = document.getElementById('measurementDate').value;
+
+                const productData = {
+                    modelId: parseInt(modelId),
+                    status: status,
+                    measurementDate: measurementDate || new Date().toISOString()
+                };
+
+                await ProductService.createProduct(productData);
+                closeModal('createProductModal');
+                await refreshProducts();
+            } catch (error) {
+                console.error('Error creating product:', error);
+                alert('Error creating product: ' + error.message);
+            }
+        }
+
+        async function createMeasurement() {
+            try {
+                const productId = document.getElementById('productSelect').value;
+                const specId = document.getElementById('specSelect').value;
+                const value = document.getElementById('measurementValue').value;
+                const measurementDateTime = document.getElementById('measurementDateTime').value;
+
+                const measurementData = {
+                    productId: parseInt(productId),
+                    specId: parseInt(specId),
+                    value: parseFloat(value),
+                    measurementDate: measurementDateTime || new Date().toISOString()
+                };
+                
+                console.log('Creating measurement:', measurementData);
+                const result = await ProductService.addMeasurement(measurementData);
+                console.log('Measurement created:', result);
+                
+                closeModal('createMeasurementModal');
+                await refreshMeasurements(); // Refresh after modal is closed
+            } catch (error) {
+                console.error('Error creating measurement:', error);
+                alert('Error creating measurement: ' + error.message);
+            }
+        }
+
+        // Add this after createMeasurement function and before the event listeners
+        async function deleteMeasurement(measurementId) {
+            try {
+                if (!confirm('Are you sure you want to delete this measurement?')) {
+                    return;
+                }
+
+                console.log('Deleting measurement:', measurementId);
+                const result = await ProductService.deleteMeasurement(measurementId);
+                console.log('Delete result:', result);
+                
+                if (result.success) {
+                    console.log('Measurement deleted successfully');
+                    await refreshMeasurements();
+                } else {
+                    throw new Error('Delete operation failed');
+                }
+            } catch (error) {
+                console.error('Error deleting measurement:', error);
+                alert('Error deleting measurement: ' + (error.error || error.message));
+            }
+        }
+
+        // Add this for products as well if you haven't already
+        async function deleteProduct(productId) {
+            try {
+                if (!confirm('Are you sure you want to delete this product?')) {
+                    return;
+                }
+
+                console.log('Deleting product:', productId);
+                await ProductService.deleteProduct(productId);
+                console.log('Product deleted');
+                
+                // Refresh both tables since deleting a product affects measurements
+                await refreshProducts();
+                await refreshMeasurements();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                alert('Error deleting product: ' + error.message);
+            }
+        }
+
+        // Add event listener for the refresh button
+        document.querySelector('button[onclick="refreshMeasurements()"]').addEventListener('click', async () => {
+            console.log('Refresh button clicked');
+            await refreshMeasurements();
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            await refreshProducts();
+            await refreshMeasurements();
+        });
+    </script>
+</body>
+</html>

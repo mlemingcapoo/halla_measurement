@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Models
 {
     public class Measurement
@@ -11,6 +13,7 @@ namespace Models
 
         // Navigation properties
         public virtual Product Product { get; set; } = null!;
+        [ForeignKey("SpecId")]
         public virtual ModelSpecification Specification { get; set; } = null!;
     }
 } 

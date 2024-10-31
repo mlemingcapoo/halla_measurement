@@ -83,7 +83,7 @@ if (HybridSupport.IsElectronActive)
 
             // Load the main page from the wwwroot folder
             Console.WriteLine("Loading main page...");
-            window.LoadURL($"file://{System.IO.Path.Combine(app.Environment.ContentRootPath, "wwwroot/index.html")}");
+            window.LoadURL($"file://{System.IO.Path.Combine(app.Environment.ContentRootPath, "wwwroot/template/index.html")}");
             Console.WriteLine("Main page loaded");
         }
         catch (Exception ex)

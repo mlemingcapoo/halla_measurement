@@ -37,16 +37,13 @@ namespace halla_measurement_1.Migrations
                     b.Property<int>("SpecId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("SpecificationSpecId")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("MeasurementId");
 
                     b.HasIndex("MeasuredAt");
 
                     b.HasIndex("ProductId");
 
-                    b.HasIndex("SpecificationSpecId");
+                    b.HasIndex("SpecId");
 
                     b.ToTable("Measurements");
                 });
@@ -152,7 +149,7 @@ namespace halla_measurement_1.Migrations
 
                     b.HasOne("Models.ModelSpecification", "Specification")
                         .WithMany()
-                        .HasForeignKey("SpecificationSpecId")
+                        .HasForeignKey("SpecId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

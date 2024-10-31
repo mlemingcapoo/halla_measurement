@@ -25,6 +25,245 @@ public class ElectronController : Controller
             return;
         }
 
+        Electron.IpcMain.On("product-create", async (args) =>
+{
+    using var scope = _scopeFactory.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    try
+    {
+        _logger.LogInformation("Product data received: " + args.ToString());
+        var data = JsonSerializer.Deserialize<ProductCreateRequest>(args.ToString(), GetJsonSerializerOptions());
+
+        if (data == null) throw new Exception("Invalid product data");
+
+        var model = await context.Models.FindAsync(data.ModelId);
+        if (model == null)
+        {
+            throw new Exception($"Model with ID {data.ModelId} not found");
+        }
+
+        var product = new Product
+        {
+            ModelId = data.ModelId,
+            MeasurementDate = data.MeasurementDate ?? DateTime.Now,
+            Status = data.Status ?? "Pending"
+        };
+
+        context.Products.Add(product);
+        await context.SaveChangesAsync();
+
+        // Update TotalProducts count
+        model.TotalProducts++;
+        await context.SaveChangesAsync();
+
+        var productDTO = await CreateProductDTO(context, product);
+        _logger.LogInformation($"Created product: {product.ProductId}");
+        Electron.IpcMain.Send(window, "product-created", JsonSerializer.Serialize(productDTO, GetJsonSerializerOptions()));
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError($"Error creating product: {ex.Message}");
+        Electron.IpcMain.Send(window, "product-error", JsonSerializer.Serialize(new { error = ex.Message }));
+    }
+});
+
+        // Add Measurement
+        Electron.IpcMain.On("measurement-create", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                _logger.LogInformation("Measurement data received: " + args.ToString());
+                var data = JsonSerializer.Deserialize<MeasurementCreateRequest>(args.ToString(), GetJsonSerializerOptions());
+
+                if (data == null) throw new Exception("Invalid measurement data");
+
+                // Add debugging
+                var allSpecs = await context.ModelSpecifications.ToListAsync();
+                _logger.LogInformation($"Available SpecIds: {string.Join(", ", allSpecs.Select(s => s.SpecId))}");
+                _logger.LogInformation($"Attempting to use SpecId: {data.SpecId}");
+
+                // Validate product exists
+                var product = await context.Products.FindAsync(data.ProductId);
+                if (product == null)
+                {
+                    throw new Exception($"Product with ID {data.ProductId} not found");
+                }
+
+                // Validate specification exists
+                var spec = await context.ModelSpecifications.FindAsync(data.SpecId);
+                if (spec == null)
+                {
+                    throw new Exception($"Specification with ID {data.SpecId} not found");
+                }
+
+                // Create new measurement
+                var measurement = new Measurement
+                {
+                    ProductId = data.ProductId,
+                    SpecId = data.SpecId,
+                    MeasuredValue = data.Value,
+                    MeasuredAt = data.MeasurementDate ?? DateTime.Now,
+                    IsWithinSpec = data.Value >= spec.MinValue && data.Value <= spec.MaxValue
+                };
+
+                context.Measurements.Add(measurement);
+                await context.SaveChangesAsync();
+
+                // Create DTO for response
+                var measurementDTO = new MeasurementDTO
+                {
+                    MeasurementId = measurement.MeasurementId,
+                    ProductId = measurement.ProductId,
+                    SpecId = measurement.SpecId,
+                    Value = measurement.MeasuredValue,
+                    MeasurementDate = measurement.MeasuredAt,
+                    SpecName = spec.SpecName,
+                    MinValue = spec.MinValue,
+                    MaxValue = spec.MaxValue,
+                    Unit = spec.Unit
+                };
+
+                _logger.LogInformation($"Created measurement: {measurement.MeasurementId}");
+                Electron.IpcMain.Send(window, "measurement-created", JsonSerializer.Serialize(measurementDTO, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error creating measurement: {ex.Message}");
+                Electron.IpcMain.Send(window, "measurement-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Get All Products
+        Electron.IpcMain.On("product-getAll", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var products = await context.Products
+                    .Include(p => p.Model)
+                    .Include(p => p.Measurements)
+                    .ToListAsync();
+
+                var productDTOs = await Task.WhenAll(products.Select(p => CreateProductDTO(context, p)));
+
+                _logger.LogInformation($"Retrieved {products.Count} products");
+                Electron.IpcMain.Send(window, "product-list", JsonSerializer.Serialize(productDTOs, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting products: {ex.Message}");
+                Electron.IpcMain.Send(window, "product-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Get Products by Model ID
+        Electron.IpcMain.On("product-getByModelId", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var modelId = JsonSerializer.Deserialize<int>(args.ToString());
+                var products = await context.Products
+                    .Include(p => p.Model)
+                    .Include(p => p.Measurements)
+                    .Where(p => p.ModelId == modelId)
+                    .ToListAsync();
+
+                var productDTOs = await Task.WhenAll(products.Select(p => CreateProductDTO(context, p)));
+
+                _logger.LogInformation($"Retrieved {products.Count} products for model {modelId}");
+                Electron.IpcMain.Send(window, "product-list", JsonSerializer.Serialize(productDTOs, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting products: {ex.Message}");
+                Electron.IpcMain.Send(window, "product-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Update Product Status
+        Electron.IpcMain.On("product-updateStatus", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var data = JsonSerializer.Deserialize<ProductUpdateRequest>(args.ToString(), GetJsonSerializerOptions());
+                if (data == null) throw new Exception("Invalid update data");
+
+                var product = await context.Products
+                    .Include(p => p.Model)
+                    .Include(p => p.Measurements)
+                    .FirstOrDefaultAsync(p => p.ProductId == data.ProductId);
+
+                if (product == null)
+                {
+                    throw new Exception($"Product with ID {data.ProductId} not found");
+                }
+
+                if (data.Status != null)
+                    product.Status = data.Status;
+                if (data.MeasurementDate.HasValue)
+                    product.MeasurementDate = data.MeasurementDate.Value;
+
+                await context.SaveChangesAsync();
+
+                var productDTO = await CreateProductDTO(context, product);
+                _logger.LogInformation($"Updated product: {product.ProductId}");
+                Electron.IpcMain.Send(window, "product-updated", JsonSerializer.Serialize(productDTO, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error updating product: {ex.Message}");
+                Electron.IpcMain.Send(window, "product-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Delete Product
+        Electron.IpcMain.On("product-delete", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var productId = JsonSerializer.Deserialize<int>(args.ToString());
+                var product = await context.Products
+                    .Include(p => p.Model)
+                    .FirstOrDefaultAsync(p => p.ProductId == productId);
+
+                if (product == null)
+                {
+                    throw new Exception($"Product with ID {productId} not found");
+                }
+
+                var model = product.Model;
+                context.Products.Remove(product);
+                await context.SaveChangesAsync();
+
+                // Update TotalProducts count
+                model.TotalProducts = Math.Max(0, model.TotalProducts - 1);
+                await context.SaveChangesAsync();
+
+                _logger.LogInformation($"Deleted product: {productId}");
+                Electron.IpcMain.Send(window, "product-deleted", JsonSerializer.Serialize(new { success = true, id = productId }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting product: {ex.Message}");
+                Electron.IpcMain.Send(window, "product-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
         Electron.IpcMain.On("spec-create", async (args) =>
 {
     using var scope = _scopeFactory.CreateScope();
@@ -370,6 +609,73 @@ public class ElectronController : Controller
                 Electron.IpcMain.Send(window, "model-error", JsonSerializer.Serialize(new { error = ex.Message }));
             }
         });
+
+        // Get All Measurements
+        Electron.IpcMain.On("measurement-getAll", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var measurements = await context.Measurements
+                    .Include(m => m.Product)
+                        .ThenInclude(p => p.Model)
+                    .Include(m => m.Specification)
+                    .Select(m => new MeasurementDTO
+                    {
+                        MeasurementId = m.MeasurementId,
+                        ProductId = m.ProductId,
+                        SpecId = m.SpecId,
+                        Value = m.MeasuredValue,
+                        MeasurementDate = m.MeasuredAt,
+                        SpecName = m.Specification.SpecName,
+                        MinValue = m.Specification.MinValue,
+                        MaxValue = m.Specification.MaxValue,
+                        Unit = m.Specification.Unit,
+                        IsWithinSpec = m.IsWithinSpec,
+                        ModelCode = m.Product.Model.ModelCode
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation($"Retrieved {measurements.Count} measurements");
+                Electron.IpcMain.Send(window, "measurement-list", JsonSerializer.Serialize(measurements, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting measurements: {ex.Message}");
+                Electron.IpcMain.Send(window, "measurement-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Delete Measurement
+        Electron.IpcMain.On("measurement-delete", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var measurementId = JsonSerializer.Deserialize<int>(args.ToString());
+                var measurement = await context.Measurements.FindAsync(measurementId);
+
+                if (measurement == null)
+                {
+                    throw new Exception($"Measurement with ID {measurementId} not found");
+                }
+
+                context.Measurements.Remove(measurement);
+                await context.SaveChangesAsync();
+
+                _logger.LogInformation($"Deleted measurement: {measurementId}");
+                Electron.IpcMain.Send(window, "measurement-deleted", JsonSerializer.Serialize(new { success = true, id = measurementId }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting measurement: {ex.Message}");
+                Electron.IpcMain.Send(window, "measurement-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
     }
 
     private JsonSerializerOptions GetJsonSerializerOptions()
@@ -378,6 +684,39 @@ public class ElectronController : Controller
         {
             ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
             PropertyNameCaseInsensitive = true
+        };
+    }
+
+    private async Task<ProductDTO> CreateProductDTO(ApplicationDbContext context, Product product)
+    {
+        var measurements = await context.Measurements
+            .Where(m => m.ProductId == product.ProductId)
+            .Join(context.ModelSpecifications,
+                m => m.SpecId,
+                s => s.SpecId,
+                (m, s) => new MeasurementDTO
+                {
+                    MeasurementId = m.MeasurementId,
+                    ProductId = m.ProductId,
+                    SpecId = m.SpecId,
+                    Value = m.MeasuredValue,
+                    MeasurementDate = m.MeasuredAt,
+                    SpecName = s.SpecName,
+                    MinValue = s.MinValue,
+                    MaxValue = s.MaxValue,
+                    Unit = s.Unit
+                })
+            .ToListAsync();
+
+        return new ProductDTO
+        {
+            ProductId = product.ProductId,
+            ModelId = product.ModelId,
+            MeasurementDate = product.MeasurementDate,
+            Status = product.Status,
+            ModelCode = product.Model.ModelCode,
+            ModelName = product.Model.ModelName,
+            Measurements = measurements
         };
     }
 }
@@ -448,4 +787,53 @@ public class SpecificationDTO
     public double MaxValue { get; set; }
     public string? Unit { get; set; }
     public int DisplayOrder { get; set; }
+}
+
+// Add these classes at the bottom of your file
+public class ProductDTO
+{
+    public int ProductId { get; set; }
+    public int ModelId { get; set; }
+    public DateTime MeasurementDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string ModelCode { get; set; } = string.Empty;
+    public string ModelName { get; set; } = string.Empty;
+    public List<MeasurementDTO> Measurements { get; set; } = new();
+}
+
+public class ProductCreateRequest
+{
+    public int ModelId { get; set; }
+    public DateTime? MeasurementDate { get; set; }
+    public string? Status { get; set; }
+}
+
+public class ProductUpdateRequest
+{
+    public int ProductId { get; set; }
+    public DateTime? MeasurementDate { get; set; }
+    public string? Status { get; set; }
+}
+
+public class MeasurementDTO
+{
+    public int MeasurementId { get; set; }
+    public int ProductId { get; set; }
+    public int SpecId { get; set; }
+    public double Value { get; set; }
+    public DateTime MeasurementDate { get; set; }
+    public string SpecName { get; set; } = string.Empty;
+    public double MinValue { get; set; }
+    public double MaxValue { get; set; }
+    public string? Unit { get; set; }
+    public bool IsWithinSpec { get; set; }
+    public string ModelCode { get; set; } = string.Empty;
+}
+
+public class MeasurementCreateRequest
+{
+    public int ProductId { get; set; }
+    public int SpecId { get; set; }
+    public double Value { get; set; }
+    public DateTime? MeasurementDate { get; set; }
 }

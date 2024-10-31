@@ -43,5 +43,10 @@ public class ApplicationDbContext : DbContext
             .HasOne(m => m.Product)
             .WithMany(p => p.Measurements)
             .HasForeignKey(m => m.ProductId);
+
+        modelBuilder.Entity<Measurement>()
+            .HasOne(m => m.Specification)
+            .WithMany()
+            .HasForeignKey(m => m.SpecId);
     }
 } 
