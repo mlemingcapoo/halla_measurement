@@ -1,1 +1,188 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Transformation Task</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="flex flex-col h-screen overflow-hidden">
+        <!-- Navigation Bar -->
+        <header class="bg-white shadow-md">
+            <div class="container mx-auto px-4 py-2 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <img src="placeholder.svg" alt="HALLA Logo" class="w-10 h-10 rounded">
+                    <span class="font-semibold">HALLA ELECTRONICS VINA</span>
+                </div>
+                <h1 class="text-xl font-bold">Digital Transformation Task</h1>
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="tabular-nums" id="current-time"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-hidden">
+            <div class="container mx-auto p-4 h-full">
+                <div class="grid grid-cols-2 gap-4 h-full">
+                    <!-- Left Column - Model Info -->
+                    <div class="flex flex-col h-full">
+                        <div class="bg-white p-4 rounded-lg shadow mb-4">
+                            <div class="flex justify-between mb-2">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-500">Model</div>
+                                    <div class="text-2xl font-bold">HUB-23</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-500">Total Product</div>
+                                    <div class="text-2xl font-bold">1238</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow flex-1 overflow-hidden">
+                            <div class="h-full overflow-y-auto grid grid-cols-2 gap-4">
+                                <img src="placeholder.svg" alt="Model Image 1" class="w-full h-40 object-cover rounded-lg border bg-gray-200">
+                                <img src="placeholder.svg" alt="Model Image 2" class="w-full h-40 object-cover rounded-lg border bg-gray-200">
+                                <img src="placeholder.svg" alt="Model Image 3" class="w-full h-40 object-cover rounded-lg border bg-gray-200">
+                                <img src="placeholder.svg" alt="Model Image 4" class="w-full h-40 object-cover rounded-lg border bg-gray-200">
+                                <img src="placeholder.svg" alt="Model Image 5" class="w-full h-40 object-cover rounded-lg border bg-gray-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Chart -->
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h2 class="text-lg font-semibold mb-4">Measurement Trends</h2>
+                        <canvas id="measurementChart" class="w-full h-64"></canvas>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex justify-center gap-4 my-4">
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Trang chủ</button>
+                    <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" id="settingsBtn">Thiết lập</button>
+                    <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Báo cáo</button>
+                    <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Lịch sử</button>
+                    <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Phân cứng</button>
+                    <button class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Thoát</button>
+                </div>
+
+                <!-- Results Table -->
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="p-4 border-b">
+                        <h2 class="text-lg font-semibold">Test Results</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STT</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS1</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS2</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS3</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS4</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS5</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS6</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TS7</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời gian</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- Table rows will be dynamically inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4">Settings</h2>
+            <p class="mb-4">Configure your application settings here.</p>
+            <button id="closeSettingsBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleString('vi-VN');
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Chart
+        const ctx = document.getElementById('measurementChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['21/7/2024', '22/7/2024', '23/7/2024'],
+                datasets: [{
+                    label: 'TS1',
+                    data: [4, 2.8, 3.5],
+                    borderColor: 'rgb(59, 130, 246)',
+                    tension: 0.1
+                }, {
+                    label: 'TS2',
+                    data: [2.5, 3.8, 2],
+                    borderColor: 'rgb(249, 115, 22)',
+                    tension: 0.1
+                }, {
+                    label: 'TS3',
+                    data: [2, 2.2, 3],
+                    borderColor: 'rgb(139, 92, 246)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Populate table
+        const tableBody = document.querySelector('tbody');
+        for (let i = 1; i <= 5; i++) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">${i}</td>
+                <td class="px-6 py-4 whitespace-nowrap">HUB-23</td>
+                <td class="px-6 py-4 whitespace-nowrap bg-green-100">71.59</td>
+                <td class="px-6 py-4 whitespace-nowrap bg-green-100">71.5</td>
+                <td class="px-6 py-4 whitespace-nowrap bg-green-100">71.5</td>
+                <td class="px-6 py-4 whitespace-nowrap bg-red-100">34.5</td>
+                <td class="px-6 py-4 whitespace-nowrap">126.0</td>
+                <td class="px-6 py-4 whitespace-nowrap">22.1</td>
+                <td class="px-6 py-4 whitespace-nowrap">212.4</td>
+                <td class="px-6 py-4 whitespace-nowrap">13:33:30 - 23/07/2024</td>
+            `;
+            tableBody.appendChild(row);
+        }
+
+        // Settings modal
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+            settingsModal.classList.add('flex');
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+            settingsModal.classList.remove('flex');
+        });
+    </script>
+</body>
+</html>

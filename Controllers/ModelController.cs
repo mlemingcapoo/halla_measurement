@@ -36,21 +36,31 @@ namespace halla_measurement_1.Controllers
 
             if (modelDto.Images != null && modelDto.Images.Any())
             {
-                var imagesPaths = new List<string>();
-                foreach (var image in modelDto.Images)
+                foreach (var imageFile in modelDto.Images)
                 {
-                    var uniqueFileName = Guid.NewGuid().ToString() + "_" + image.FileName;
+                    var uniqueFileName = Guid.NewGuid().ToString() + "_" + imageFile.FileName;
                     var uploadsFolder = Path.Combine(_environment.WebRootPath, "images", "models");
                     Directory.CreateDirectory(uploadsFolder);
                     var filePath = Path.Combine(uploadsFolder, uniqueFileName);
                     
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
-                        await image.CopyToAsync(stream);
+                        await imageFile.CopyToAsync(stream);
                     }
-                    imagesPaths.Add("/images/models/" + uniqueFileName);
+
+                    var image = new Image
+                    {
+                        ModelId = model.ModelId,
+                        FileName = imageFile.FileName,
+                        FilePath = "/images/models/" + uniqueFileName,
+                        ContentType = imageFile.ContentType,
+                        FileSize = imageFile.Length,
+                        UploadedAt = DateTime.Now,
+                        DisplayOrder = 0
+                    };
+                    
+                    model.Images.Add(image);
                 }
-                model.ImagePath = string.Join(";", imagesPaths);
             }
 
             foreach (var spec in modelDto.Specifications)

@@ -1,0 +1,169 @@
+<div class="text-gray-900">
+    <!-- Header Section -->
+    <div class="border-b pb-4 mb-4">
+        <!-- <h3 class="text-xl font-bold text-gray-900">Bấm để bắt đầu đo <span id="current-model">HUB-23</span></h3> -->
+        <p class="text-gray-600 font-semibold">Vui lòng đảm bảo thiết bị đo đã được lắp đặt 
+            <!-- <span id="product-number">1</span> -->
+        </p>
+    </div>
+
+    <!-- Measurement Display -->
+    <div class="space-y-6">
+        <!-- Current Measurement Info -->
+        <div id="measurement-prompt" class="bg-gray-50 p-4 rounded-lg text-center hidden">
+            <h4 class="text-lg font-semibold mb-2">Tên thông số: <span id="current-spec-name">Length</span></h4>
+            <div class="text-3xl font-bold text-blue-600 mb-4">
+                <span id="countdown-text">Waiting...</span>
+                <span id="countdown" class="hidden">Waiting...</span>
+            </div>
+            <div class="mb-4">
+                <p class="text-gray-600 mb-2 font-semibold">Thông số đo được:</p>
+                <div id="measurement-value" class="text-2xl font-bold">--</div>
+            </div>
+            <div id="measurement-buttons" class="flex justify-center space-x-4">
+                <button type="button" id="remeasure-button"
+                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                    Đo Lại
+                </button>
+                <button type="button" id="confirm-measurement"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    OK
+                </button>
+            </div>
+        </div>
+
+        <!-- Start Button -->
+        <div id="start-container" class="text-center">
+            <button type="button" id="start-measuring"
+                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                Bắt đầu
+            </button>
+        </div>
+    </div>
+
+    <!-- Continue Dialog -->
+    <div id="continue-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h4 class="text-lg font-bold mb-4">Đã đo xong sản phẩm này</h4>
+            <div id="measurements-summary" class="mb-4">
+                <!-- Summary will be populated dynamically -->
+            </div>
+            <p class="mb-4">Tiếp tục đo sản phẩm khác?</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="cancel-measuring"
+                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    Lưu và Thoát
+                </button>
+                <button type="button" id="continue-measuring"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Tiếp Tục
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function ensureServicesLoaded() {
+        console.log('Checking required services...');
+
+        // Create a global tracker for service loading
+        window._serviceLoadingPromises = window._serviceLoadingPromises || {};
+
+        async function loadService(name, path) {
+            // If service is already loaded, return immediately
+            if (window[name]) {
+                console.log(`${name} already loaded`);
+                return;
+            }
+
+            // If service is currently loading, wait for it
+            if (window._serviceLoadingPromises[name]) {
+                console.log(`Waiting for ${name} to load...`);
+                return window._serviceLoadingPromises[name];
+            }
+
+            // Start loading the service
+            console.log(`Loading ${name}...`);
+            window._serviceLoadingPromises[name] = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = path;
+                script.onload = () => {
+                    console.log(`${name} loaded successfully`);
+                    delete window._serviceLoadingPromises[name];
+                    resolve();
+                };
+                script.onerror = (error) => {
+                    console.error(`Failed to load ${name}:`, error);
+                    delete window._serviceLoadingPromises[name];
+                    reject(error);
+                };
+                document.head.appendChild(script);
+            });
+
+            return window._serviceLoadingPromises[name];
+        }
+
+        try {
+            await loadService('ModelSpecificationService', './js/model-spec-service.js');
+            await loadService('ProductSpecificationService', './js/product-measurement-service.js');
+        } catch (error) {
+            console.error('Error loading services:', error);
+            throw error;
+        }
+    }
+
+    // Add this before the MeasurementProcess class
+    function showToast(message, type = 'success') {
+        // Create toast container if it doesn't exist
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed top-4 right-4 z-50 flex flex-col gap-2';
+            document.body.appendChild(container);
+        }
+
+        // Create toast element
+        const toast = document.createElement('div');
+
+        const baseClasses = 'flex items-center p-4 mb-4 rounded-lg shadow-lg transition-all duration-500 transform translate-x-full';
+        const typeClasses = type === 'success'
+            ? 'text-green-800 bg-green-50'
+            : 'text-red-800 bg-red-50';
+
+        toast.className = `${baseClasses} ${typeClasses}`;
+        toast.innerHTML = `
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            ${type === 'success'
+                ? '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
+                : '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>'
+            }
+        </svg>
+        <span class="text-sm font-semibold">${message}</span>
+    `;
+
+        container.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => container.removeChild(toast), 500);
+        }, 3000);
+    }
+
+    console.log('Modal script starting to load');
+
+    // Initialize only if services are available
+    if (window.services.initialized) {
+        if (!window.measurementForm) {
+            window.measurementForm = new MeasurementProcess();
+        } else {
+            // Reinitialize the existing instance
+            window.measurementForm.initialize();
+        }
+    }
+</script>

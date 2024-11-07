@@ -11,5 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
             console.log('Received on channel:', channel, 'with args:', args)
             func(...args)
         })
-    }
-}) 
+    },
+    closeApp: () => ipcRenderer.send('close-app')
+})

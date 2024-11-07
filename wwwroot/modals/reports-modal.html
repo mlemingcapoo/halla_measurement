@@ -1,0 +1,218 @@
+<div class="text-gray-900">
+  <!-- Tab Navigation -->
+  <div class="border-b border-gray-200 mb-4">
+      <nav class="flex space-x-4" aria-label="Tabs">
+          <button class="tab-button px-4 py-2 font-medium rounded-t-lg border-b-2 border-blue-500 text-blue-600" data-tab="production">Production Stats</button>
+          <button class="tab-button px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="quality">Quality Metrics</button>
+      </nav>
+  </div>
+
+  <!-- Time Period Selector -->
+  <div class="mb-6">
+      <select id="timePeriod" class="w-48 px-4 py-2 border rounded-lg">
+          <option value="day">Daily</option>
+          <option value="week">Weekly</option>
+          <option value="month">Monthly</option>
+      </select>
+  </div>
+
+  <!-- Production Stats Tab -->
+  <div id="production-tab" class="tab-content">
+      <div class="bg-white rounded-lg p-4" style="height: 400px;">
+          <canvas id="productionChart"></canvas>
+      </div>
+  </div>
+
+  <!-- Quality Metrics Tab -->
+  <div id="quality-tab" class="tab-content hidden">
+      <div class="bg-white rounded-lg p-4" style="height: 400px;">
+          <canvas id="qualityChart"></canvas>
+      </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Add this at the start of your script
+if (typeof Chart === 'undefined') {
+    console.error('Chart.js is not loaded!');
+}
+
+// Sample data
+const dailyData = {
+  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+  good: [65, 75, 70, 80, 85],
+  bad: [15, 10, 20, 10, 5]
+};
+
+const weeklyData = {
+  labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+  good: [280, 290, 275, 295],
+  bad: [45, 40, 50, 35]
+};
+
+const monthlyData = {
+  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+  good: [1200, 1250, 1180, 1300, 1280],
+  bad: [180, 165, 190, 150, 160]
+};
+
+// Initialize charts
+let productionChart = null;
+let qualityChart = null;
+
+// Production Chart Setup
+function setupProductionChart(data) {
+  console.log('Setting up production chart with data:', data);
+  const ctx = document.getElementById('productionChart');
+  if (!ctx) {
+    console.error('Production chart canvas not found');
+    return;
+  }
+
+  if (productionChart) {
+      productionChart.destroy();
+  }
+
+  productionChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+          labels: data.labels,
+          datasets: [
+              {
+                  label: 'Good Products',
+                  data: data.good,
+                  backgroundColor: 'rgb(59, 130, 246)',
+                  borderColor: 'rgb(29, 78, 216)',
+                  borderWidth: 1
+              },
+              {
+                  label: 'Defective Products',
+                  data: data.bad,
+                  backgroundColor: 'rgb(249, 115, 22)',
+                  borderColor: 'rgb(194, 65, 12)',
+                  borderWidth: 1
+              }
+          ]
+      },
+      options: {
+          responsive: true,
+          scales: {
+              x: {
+                  stacked: true,
+              },
+              y: {
+                  stacked: true,
+                  beginAtZero: true
+              }
+          },
+          plugins: {
+              title: {
+                  display: true,
+                  text: 'Production Statistics'
+              }
+          }
+      }
+  });
+}
+
+// Quality Chart Setup (Example Donut Chart)
+function setupQualityChart(data) {
+  console.log('Setting up quality chart with data:', data);
+  const ctx = document.getElementById('qualityChart');
+  if (!ctx) {
+    console.error('Quality chart canvas not found');
+    return;
+  }
+
+  if (qualityChart) {
+      qualityChart.destroy();
+  }
+
+  const total = data.good.reduce((a, b) => a + b, 0);
+  const defects = data.bad.reduce((a, b) => a + b, 0);
+  
+  qualityChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+          labels: ['Pass Rate', 'Defect Rate'],
+          datasets: [{
+              data: [total, defects],
+              backgroundColor: [
+                  'rgb(59, 130, 246)',
+                  'rgb(249, 115, 22)'
+              ]
+          }]
+      },
+      options: {
+          responsive: true,
+          plugins: {
+              title: {
+                  display: true,
+                  text: 'Quality Overview'
+              }
+          }
+      }
+  });
+}
+
+// Tab switching
+document.querySelectorAll('.tab-button').forEach(button => {
+  button.addEventListener('click', () => {
+      // Update button styles
+      document.querySelectorAll('.tab-button').forEach(btn => {
+          btn.classList.remove('border-blue-500', 'text-blue-600');
+          btn.classList.add('text-gray-500');
+      });
+      button.classList.remove('text-gray-500');
+      button.classList.add('border-blue-500', 'text-blue-600');
+
+      // Show corresponding tab content
+      const tabId = button.getAttribute('data-tab');
+      document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.add('hidden');
+      });
+      document.getElementById(`${tabId}-tab`).classList.remove('hidden');
+
+      // Update charts based on current time period
+      updateCharts(document.getElementById('timePeriod').value);
+  });
+});
+
+// Time period change handler
+document.getElementById('timePeriod').addEventListener('change', (e) => {
+  updateCharts(e.target.value);
+});
+
+// Update charts based on time period
+function updateCharts(period) {
+  let data;
+  switch(period) {
+      case 'day':
+          data = dailyData;
+          break;
+      case 'week':
+          data = weeklyData;
+          break;
+      case 'month':
+          data = monthlyData;
+          break;
+      default:
+          data = dailyData;
+  }
+
+  setupProductionChart(data);
+  setupQualityChart(data);
+}
+
+// Initialize charts with daily data
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM Content Loaded');
+  setTimeout(() => {
+      updateCharts('day');
+  }, 100);
+});
+
+
+</script>

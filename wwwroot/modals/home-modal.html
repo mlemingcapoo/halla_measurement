@@ -1,0 +1,33 @@
+<div class="modal-content text-gray-900">
+    <div class="grid grid-cols-2 gap-4">
+        <div class="border p-4">
+            <!-- <h4 class="font-bold text-gray-900">Thông tin tổng quan</h4> -->
+            <div id="home-overview">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+        <div class="border p-4">
+            <!-- <h4 class="font-bold">Trạng thái hệ thống</h4> -->
+            <div id="system-status">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+    <script>
+        // Modal specific functions
+        function loadHomeData() {
+            // Example function to load data
+            document.getElementById('home-overview').innerHTML = 'Loading overview...';
+            document.getElementById('system-status').innerHTML = 'Loading status...';
+            
+            // Simulate API call
+            setTimeout(() => {
+                document.getElementById('home-overview').innerHTML = 'Overview data loaded';
+                document.getElementById('system-status').innerHTML = 'System status loaded';
+            }, 1000);
+        }
+
+        // Call when modal opens
+        // loadHomeData();
+    </script>
+</div> 

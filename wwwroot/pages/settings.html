@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Halla Electronics Vina</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        .select2-container .select2-selection--single {
+            height: 2.5rem !important;
+            padding: 0.5rem !important;
+            font-weight: 700 !important;
+            border-color: #e5e7eb !important;
+            border-radius: 0.5rem !important;
+            background-color: white !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 1.5 !important;
+            color: #111827 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            display: none !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__clear {
+            display: none !important;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="../js/model-service.js"></script>
+    <script src="../js/model-spec-service.js"></script>
+    <script src="../js/product-service.js"></script>
+    <script src="../js/product-measurement-service.js"></script>
+</head>
+
+<body class="bg-white min-h-screen">
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2">
+        <!-- Toasts will be inserted here -->
+    </div>
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg px-6 py-3 flex items-center justify-between">
+        <a href="../index.html" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span class="ml-2 font-medium">Back</span>
+        </a>
+        <div class="flex items-center space-x-3">
+            <img src="../images/logo.png" alt="Halla Electronics Vina" class="h-10">
+            <span class="text-gray-900 font-semibold text-lg">HALLA ELECTRONICS VINA</span>
+        </div>
+        <h1 class="text-2xl font-bold text-orange-600">Settings Dashboard</h1>
+        <div class="text-gray-800 font-mono">
+            <span id="clock" class="text-lg"></span>
+            <div id="date" class="text-sm"></div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 space-y-6">
+        <div class="text-gray-900">
+            <!-- Tab Navigation -->
+            <div class="border-b border-gray-200 mb-4">
+                <nav class="flex space-x-4" aria-label="Tabs">
+                    <button
+                        class="tab-button px-4 py-2 font-medium rounded-t-lg border-b-2 border-blue-500 text-blue-600"
+                        data-tab="models">Models</button>
+                    <button class="tab-button px-4 py-2 font-medium text-gray-500 hover:text-gray-700"
+                        data-tab="specifications">Specifications</button>
+                </nav>
+            </div>
+
+            <!-- Models Tab -->
+            <div id="models-tab" class="tab-content grid grid-cols-2 gap-4 h-100">
+                <!-- Left Column: Model List -->
+                <div class="border rounded-lg p-4 flex flex-col overflow-scroll">
+                    <div class="sticky top-0 bg-white pb-4">
+                        <input type="text" placeholder="Search models..."
+                            class="w-full px-4 py-2 border rounded-lg mb-2">
+                    </div>
+                    <div class="overflow-y-auto flex-grow">
+                        <div class="space-y-4">
+                            <!-- Model Item Template -->
+                            <div class="border rounded-lg p-4 hover:bg-gray-50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold">HUB-23</h4>
+                                    <div class="space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800"
+                                            onclick="editModel('HUB-23')">Edit</button>
+                                        <button class="text-blue-600 hover:text-blue-800"
+                                            onclick="switchToSpecs('HUB-23')">Edit
+                                            Specs</button>
+                                        <button class="text-red-600 hover:text-red-800">Delete</button>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-600">Description of the model goes here...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Create/Edit Form -->
+                <div class="border rounded-lg p-4 overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold" id="form-title">Create New Model</h3>
+                        <button type="button" onclick="initNewModel()"
+                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            New Model
+                        </button>
+                    </div>
+                    <form id="model-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Model Code</label>
+                            <input type="text" name="modelCode" class="w-full px-4 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Model Name</label>
+                            <input type="text" name="modelName" class="w-full px-4 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Description</label>
+                            <textarea name="description" class="w-full px-4 py-2 border rounded-lg" rows="3"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Images</label>
+                            <input type="file" id="image-upload" multiple accept="image/*"
+                                class="w-full px-4 py-2 border rounded-lg" onchange="handleImageUpload(event)">
+                            <div id="image-preview" class="grid grid-cols-2 gap-4 mt-4"></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Preview</label>
+                            <div id="image-preview" class="grid grid-cols-3 gap-2">
+                                <!-- Preview images will be inserted here -->
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                            Save Model
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Specifications Tab -->
+            <div id="specifications-tab" class="tab-content hidden grid grid-cols-2 gap-4">
+                <!-- Left Column: Spec List -->
+                <div class="border rounded-lg p-4 flex flex-col overflow-scroll">
+                    <div class="sticky top-0 bg-white space-y-4 pb-4">
+                        <select name="modelId" class="w-full px-4 py-2 border rounded-lg"
+                            id="specifications-model-select" onchange="loadSpecifications(this.value)">
+                            <!-- <option value="">Select Model</option> -->
+                        </select>
+                    </div>
+                    <div class="overflow-y-auto flex-grow">
+                        <div class="space-y-4">
+                            <!-- Specifications will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Replace the specification form section (around line 106) -->
+                <div class="border rounded-lg p-4 overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold" id="spec-form-title">Create New Specification</h3>
+                        <button type="button" onclick="initNewSpecification()"
+                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            New Specification
+                        </button>
+                    </div>
+                    <form id="spec-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Model</label>
+                            <select name="modelId" class="w-full px-4 py-2 border rounded-lg" required>
+                                <!-- <option value="">Select Model</option> -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Specification Name</label>
+                            <input type="text" name="specName" class="w-full px-4 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Minimum Value</label>
+                            <input type="number" name="minValue" step="0.01" class="w-full px-4 py-2 border rounded-lg"
+                                required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Maximum Value</label>
+                            <input type="number" name="maxValue" step="0.01" class="w-full px-4 py-2 border rounded-lg"
+                                required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Unit</label>
+                            <input type="text" name="unit" class="w-full px-4 py-2 border rounded-lg"
+                                placeholder="e.g., mm, cm, kg" required>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                            Save Specification
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <!-- Toast Container -->
+        </div>
+    </div>
+    <script src="./js/settings.js"></script>
+
+    

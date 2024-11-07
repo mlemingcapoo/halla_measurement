@@ -2,9 +2,10 @@ using ElectronNET.API;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Models;
+using System.IO;
+using System;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
 
 public class ElectronController : Controller
 {
@@ -24,6 +25,24 @@ public class ElectronController : Controller
             _logger.LogError("Electron is not active!");
             return;
         }
+        // Debug check for existing images
+        // using (var scope = _scopeFactory.CreateScope())
+        // {
+        //     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        //     var images = context.Images.ToList();
+        //     _logger.LogInformation($"🎯 [Debug] Total images in database: {images.Count}");
+        //     foreach (var img in images)
+        //     {
+        //         _logger.LogInformation($"🎯 [Debug] Image: ID={img.ImageId}, ModelId={img.ModelId}, Path={img.FilePath}");
+        //     }
+        // }
+
+        // close app 
+        Electron.IpcMain.On("close-app", (args) =>
+        {
+            _logger.LogInformation("Closing app");
+            Electron.App.Exit(0);
+        });
 
         Electron.IpcMain.On("product-create", async (args) =>
 {
@@ -68,6 +87,242 @@ public class ElectronController : Controller
     }
 });
 
+        // Add these handlers in SetupIPC method
+
+        // Create Image
+        // In your image-create handler
+        Electron.IpcMain.On("image-create", async (args) =>
+        {
+            _logger.LogInformation("📸 [Image Create] Starting image creation process");
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                _logger.LogInformation("📸 [Image Create] Deserializing request data");
+                var data = JsonSerializer.Deserialize<ImageCreateRequest>(args.ToString(), GetJsonSerializerOptions());
+
+                if (data == null) throw new Exception("Invalid image data");
+
+                _logger.LogInformation($"📸 [Image Create] Creating image for ModelId: {data.ModelId}");
+                _logger.LogInformation($"📸 [Image Create] File name: {data.FileName}");
+
+                // Verify model exists
+                var model = await context.Models.FindAsync(data.ModelId);
+                if (model == null)
+                {
+                    throw new Exception($"Model with ID {data.ModelId} not found");
+                }
+                _logger.LogInformation($"📸 [Image Create] Found model: {model.ModelCode}");
+
+                // Process base64 image
+                var imageBytes = Convert.FromBase64String(data.Base64Image.Split(',')[1]);
+                _logger.LogInformation($"📸 [Image Create] Converted base64 to bytes: {imageBytes.Length} bytes");
+
+                // Create unique filename
+                var uniqueFileName = $"{Guid.NewGuid()}_{data.FileName}";
+                var directory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "models");
+                var filePath = Path.Combine(directory, uniqueFileName);
+
+                _logger.LogInformation($"📸 [Image Create] Saving to path: {filePath}");
+
+                // Ensure directory exists
+                if (!Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                    _logger.LogInformation("📸 [Image Create] Created directory: " + directory);
+                }
+
+                await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
+                _logger.LogInformation("📸 [Image Create] File saved successfully");
+
+                // Create image record
+                var image = new Image
+                {
+                    ModelId = data.ModelId,
+                    FileName = data.FileName,
+                    FilePath = $"/images/models/{uniqueFileName}",
+                    ContentType = data.ContentType,
+                    FileSize = imageBytes.Length,
+                    UploadedAt = DateTime.Now,
+                    DisplayOrder = data.DisplayOrder
+                };
+
+                context.Images.Add(image);
+                await context.SaveChangesAsync();
+                _logger.LogInformation($"📸 [Image Create] Image record created with ID: {image.ImageId}");
+
+                var imageDTO = new ImageDTO
+                {
+                    ImageId = image.ImageId,
+                    ModelId = image.ModelId,
+                    FileName = image.FileName,
+                    FilePath = image.FilePath,
+                    ContentType = image.ContentType,
+                    FileSize = image.FileSize,
+                    UploadedAt = image.UploadedAt,
+                    DisplayOrder = image.DisplayOrder
+                };
+
+                _logger.LogInformation("📸 [Image Create] Sending response to client");
+                Electron.IpcMain.Send(window, "image-created", JsonSerializer.Serialize(imageDTO));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"📸 [Image Create] Error: {ex.Message}");
+                _logger.LogError($"📸 [Image Create] Stack trace: {ex.StackTrace}");
+                Electron.IpcMain.Send(window, "image-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Add a new IPC handler to check database state
+        Electron.IpcMain.On("debug-check-images", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var images = await context.Images
+                    .Include(i => i.Model)
+                    .ToListAsync();
+
+                var debug = new
+                {
+                    TotalImages = images.Count,
+                    Images = images.Select(i => new
+                    {
+                        i.ImageId,
+                        i.ModelId,
+                        ModelCode = i.Model?.ModelCode ?? "No Model",
+                        i.FileName,
+                        i.FilePath,
+                        Exists = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", i.FilePath.TrimStart('/')))
+                    })
+                };
+
+                _logger.LogInformation($"🔍 [Debug] Database state: {JsonSerializer.Serialize(debug)}");
+                Electron.IpcMain.Send(window, "debug-images-result", JsonSerializer.Serialize(debug));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"🔍 [Debug] Error checking images: {ex.Message}");
+            }
+        });
+
+        // Get Images by Model ID
+        Electron.IpcMain.On("image-getByModel", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var modelId = JsonSerializer.Deserialize<int>(args.ToString());
+                var images = await context.Images
+                    .Where(i => i.ModelId == modelId)
+                    .OrderBy(i => i.DisplayOrder)
+                    .ToListAsync();
+
+                var imageDTOs = images.Select(i => new ImageDTO
+                {
+                    ImageId = i.ImageId,
+                    ModelId = i.ModelId,
+                    FileName = i.FileName,
+                    FilePath = i.FilePath,
+                    ContentType = i.ContentType,
+                    FileSize = i.FileSize,
+                    UploadedAt = i.UploadedAt,
+                    DisplayOrder = i.DisplayOrder
+                }).ToList();
+
+                _logger.LogInformation($"Retrieved {images.Count} images for model {modelId}");
+                Electron.IpcMain.Send(window, "image-list", JsonSerializer.Serialize(imageDTOs, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting images: {ex.Message}");
+                Electron.IpcMain.Send(window, "image-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Update Image
+        Electron.IpcMain.On("image-update", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var data = JsonSerializer.Deserialize<ImageUpdateRequest>(args.ToString(), GetJsonSerializerOptions());
+                if (data == null) throw new Exception("Invalid update data");
+
+                var image = await context.Images.FindAsync(data.ImageId);
+                if (image == null)
+                {
+                    throw new Exception($"Image with ID {data.ImageId} not found");
+                }
+
+                image.DisplayOrder = data.DisplayOrder;
+                await context.SaveChangesAsync();
+
+                var imageDTO = new ImageDTO
+                {
+                    ImageId = image.ImageId,
+                    ModelId = image.ModelId,
+                    FileName = image.FileName,
+                    FilePath = image.FilePath,
+                    ContentType = image.ContentType,
+                    FileSize = image.FileSize,
+                    UploadedAt = image.UploadedAt,
+                    DisplayOrder = image.DisplayOrder
+                };
+
+                _logger.LogInformation($"Updated image: {image.ImageId}");
+                Electron.IpcMain.Send(window, "image-updated", JsonSerializer.Serialize(imageDTO, GetJsonSerializerOptions()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error updating image: {ex.Message}");
+                Electron.IpcMain.Send(window, "image-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
+        // Delete Image
+        Electron.IpcMain.On("image-delete", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var imageId = JsonSerializer.Deserialize<int>(args.ToString());
+                var image = await context.Images.FindAsync(imageId);
+
+                if (image == null)
+                {
+                    throw new Exception($"Image with ID {imageId} not found");
+                }
+
+                // Delete physical file
+                var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", image.FilePath.TrimStart('/'));
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                context.Images.Remove(image);
+                await context.SaveChangesAsync();
+
+                _logger.LogInformation($"Deleted image: {imageId}");
+                Electron.IpcMain.Send(window, "image-deleted", JsonSerializer.Serialize(new { success = true, id = imageId }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting image: {ex.Message}");
+                Electron.IpcMain.Send(window, "image-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
         // Add Measurement
         Electron.IpcMain.On("measurement-create", async (args) =>
         {
@@ -305,6 +560,44 @@ public class ElectronController : Controller
     }
 });
 
+        // Add this handler in SetupIPC method
+        Electron.IpcMain.On("spec-getById", async (args) =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            try
+            {
+                var specId = JsonSerializer.Deserialize<int>(args.ToString());
+                var spec = await context.ModelSpecifications
+                    .FirstOrDefaultAsync(s => s.SpecId == specId);
+
+                if (spec == null)
+                {
+                    throw new Exception($"Specification with ID {specId} not found");
+                }
+
+                var specDTO = new SpecificationDTO
+                {
+                    SpecId = spec.SpecId,
+                    ModelId = spec.ModelId,
+                    SpecName = spec.SpecName,
+                    MinValue = spec.MinValue,
+                    MaxValue = spec.MaxValue,
+                    Unit = spec.Unit,
+                    DisplayOrder = spec.DisplayOrder
+                };
+
+                _logger.LogInformation($"Retrieved specification: {specId}");
+                Electron.IpcMain.Send(window, "spec-detail", JsonSerializer.Serialize(specDTO));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting specification: {ex.Message}");
+                Electron.IpcMain.Send(window, "spec-error", JsonSerializer.Serialize(new { error = ex.Message }));
+            }
+        });
+
         // Get Specifications for Model
         Electron.IpcMain.On("spec-getAll", async (args) =>
         {
@@ -510,37 +803,105 @@ public class ElectronController : Controller
             }
         });
 
-        // Get Model by ID
+        Electron.IpcMain.On("measurement-getByProduct", async (args) =>
+{
+    using var scope = _scopeFactory.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    try
+    {
+        var productId = JsonSerializer.Deserialize<int>(args.ToString());
+        _logger.LogInformation($"Fetching measurements for product {productId}");
+
+        var measurements = await context.Measurements
+            .Include(m => m.Specification)
+            .Where(m => m.ProductId == productId)  // This is crucial - filter by ProductId
+            .Select(m => new MeasurementDTO
+            {
+                MeasurementId = m.MeasurementId,
+                ProductId = m.ProductId,
+                SpecId = m.SpecId,
+                Value = m.MeasuredValue,
+                MeasurementDate = m.MeasuredAt,
+                SpecName = m.Specification.SpecName,
+                MinValue = m.Specification.MinValue,
+                MaxValue = m.Specification.MaxValue,
+                Unit = m.Specification.Unit,
+                IsWithinSpec = m.IsWithinSpec
+            })
+            .ToListAsync();
+
+        _logger.LogInformation($"Found {measurements.Count} measurements for product {productId}");
+        Electron.IpcMain.Send(window, "measurement-list",
+            JsonSerializer.Serialize(measurements, GetJsonSerializerOptions()));
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError($"Error getting measurements for product {args}: {ex.Message}");
+        Electron.IpcMain.Send(window, "measurement-error",
+            JsonSerializer.Serialize(new { error = ex.Message }));
+    }
+});
+
         Electron.IpcMain.On("model-getById", async (args) =>
+{
+    using var scope = _scopeFactory.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    try
+    {
+        _logger.LogInformation("⭐ [Server] model-getById called with args: " + args.ToString());
+        var id = JsonSerializer.Deserialize<int>(args.ToString());
+
+        // Modified query to ensure proper image loading
+        var model = await context.Models
+            .Include(m => m.Images)  // Make sure this matches your navigation property name
+            .FirstOrDefaultAsync(m => m.ModelId == id);
+
+        _logger.LogInformation($"⭐ [Server] Found model: {model?.ModelCode}, Images count: {model?.Images?.Count ?? 0}");
+
+        if (model == null)
         {
-            using var scope = _scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            throw new Exception($"Model with ID {id} not found");
+        }
 
-            try
+        var modelDTO = new
+        {
+            model.ModelId,
+            model.ModelCode,
+            model.ModelName,
+            model.Description,
+            model.CreatedAt,
+            model.TotalProducts,
+            Images = model.Images.Select(i => new
             {
-                var id = JsonSerializer.Deserialize<int>(args.ToString());
-                var model = await context.Models
-                    .Include(m => m.Specifications)
-                    .FirstOrDefaultAsync(m => m.ModelId == id);
+                i.ImageId,
+                i.ModelId,
+                i.FileName,
+                i.FilePath,
+                i.ContentType,
+                i.FileSize,
+                i.UploadedAt,
+                i.DisplayOrder
+            }).ToList()
+        };
 
-                if (model == null)
-                {
-                    throw new Exception($"Model with ID {id} not found");
-                }
+        var serializedModel = JsonSerializer.Serialize(modelDTO);
+        _logger.LogInformation($"⭐ [Server] Model DTO created with {modelDTO.Images.Count} images");
 
-                _logger.LogInformation($"Retrieved model: {id}");
-                Electron.IpcMain.Send(window, "model-details", JsonSerializer.Serialize(model));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error getting model: {ex.Message}");
-                Electron.IpcMain.Send(window, "model-error", JsonSerializer.Serialize(new { error = ex.Message }));
-            }
-        });
+        Electron.IpcMain.Send(window, "model-details", serializedModel);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError($"⭐ [Server] Error in model-getById: {ex.Message}");
+        Electron.IpcMain.Send(window, "model-error", JsonSerializer.Serialize(new { error = ex.Message }));
+    }
+});
 
         // Update Model
         Electron.IpcMain.On("model-update", async (args) =>
         {
+            _logger.LogInformation("[Server] Received model update request: " + args.ToString());
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -572,7 +933,27 @@ public class ElectronController : Controller
                 await context.SaveChangesAsync();
 
                 _logger.LogInformation($"Updated model: {model.ModelId}");
-                Electron.IpcMain.Send(window, "model-updated", JsonSerializer.Serialize(model));
+                var modelDTO = new ModelDTO
+                {
+                    ModelId = model.ModelId,
+                    ModelCode = model.ModelCode,
+                    ModelName = model.ModelName,
+                    Description = model.Description,
+                    CreatedAt = model.CreatedAt,
+                    TotalProducts = model.TotalProducts,
+                    Specifications = model.Specifications.Select(s => new SpecificationDTO
+                    {
+                        SpecId = s.SpecId,
+                        ModelId = s.ModelId,
+                        SpecName = s.SpecName,
+                        MinValue = s.MinValue,
+                        MaxValue = s.MaxValue,
+                        Unit = s.Unit,
+                        DisplayOrder = s.DisplayOrder
+                    }).ToList()
+                };
+
+                Electron.IpcMain.Send(window, "model-updated", JsonSerializer.Serialize(modelDTO, GetJsonSerializerOptions()));
             }
             catch (Exception ex)
             {
@@ -581,7 +962,7 @@ public class ElectronController : Controller
             }
         });
 
-        // Delete Model
+        // In model-delete handler
         Electron.IpcMain.On("model-delete", async (args) =>
         {
             using var scope = _scopeFactory.CreateScope();
@@ -590,17 +971,32 @@ public class ElectronController : Controller
             try
             {
                 var id = JsonSerializer.Deserialize<int>(args.ToString());
-                var model = await context.Models.FindAsync(id);
+                var model = await context.Models
+                    .Include(m => m.Specifications)
+                    .Include(m => m.Products)
+                        .ThenInclude(p => p.Measurements)
+                    .FirstOrDefaultAsync(m => m.ModelId == id);
 
                 if (model == null)
                 {
                     throw new Exception($"Model with ID {id} not found");
                 }
 
-                context.Models.Remove(model);
+                // Delete related images first
+                var images = await context.Images.Where(i => i.ModelId == id).ToListAsync();
+                foreach (var image in images)
+                {
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", image.FilePath.TrimStart('/'));
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+                }
+
+                context.Models.Remove(model); // This will cascade delete specifications, products, and measurements
                 await context.SaveChangesAsync();
 
-                _logger.LogInformation($"Deleted model: {id}");
+                _logger.LogInformation($"Deleted model: {id} and all related data");
                 Electron.IpcMain.Send(window, "model-deleted", JsonSerializer.Serialize(new { success = true, id = id }));
             }
             catch (Exception ex)
@@ -737,6 +1133,8 @@ public class ModelUpdateRequest
     public string ModelCode { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int TotalProducts { get; set; }
 }
 
 public class SpecificationRequest
@@ -776,6 +1174,7 @@ public class ModelDTO
     public DateTime CreatedAt { get; set; }
     public int TotalProducts { get; set; }
     public List<SpecificationDTO> Specifications { get; set; } = new();
+    public List<ImageDTO> Images { get; set; } = new();
 }
 
 public class SpecificationDTO
@@ -836,4 +1235,42 @@ public class MeasurementCreateRequest
     public int SpecId { get; set; }
     public double Value { get; set; }
     public DateTime? MeasurementDate { get; set; }
+}
+
+public class ImageDTO
+{
+    public int ImageId { get; set; }
+    public int ModelId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public DateTime UploadedAt { get; set; }
+    public int DisplayOrder { get; set; }
+}
+
+public class ImageCreateRequest
+{
+    public int ModelId { get; set; }
+    public string Base64Image { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+}
+
+public class ImageUpdateRequest
+{
+    public int ImageId { get; set; }
+    public int DisplayOrder { get; set; }
+}
+
+public class ModelSpecificationDTO
+{
+    public int SpecId { get; set; }
+    public int ModelId { get; set; }
+    public string SpecName { get; set; } = string.Empty;
+    public double MinValue { get; set; }
+    public double MaxValue { get; set; }
+    public string? Unit { get; set; }
+    public int DisplayOrder { get; set; }
 }

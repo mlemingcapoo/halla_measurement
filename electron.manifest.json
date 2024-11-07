@@ -1,18 +1,19 @@
 {
   "executable": "halla_measurement_1",
   "splashscreen": {
-    "imageFile": ""
+    "imageFile": "./wwwroot/images/logo.png"
   },
-  "name": "halla_measurement_1",
+  "name": "HallaMeasurement",
   "author": "",
   "singleInstance": false,
-  "environment": "Development",
+  "environment": "Production",
   "build": {
-    "appId": "com.halla_measurement_1.app",
-    "productName": "halla_measurement_1",
-    "copyright": "Copyright © 2020",
-    "buildVersion": "1.0.0",
+    "appId": "com.hallameasurement.app",
+    "productName": "HallaMeasurement",
+    "copyright": "Copyright Kalzen Media 2024",
+    "buildVersion": "0.1.0",
     "compression": "maximum",
+    "icon": "./wwwroot/favicon.ico",
     "directories": {
       "output": "../../../bin/Desktop"
     },
@@ -31,5 +32,9 @@
       },
       "**/*"
     ]
+  },
+  "ports": {
+    "http": 8123,
+    "https": 80
   }
 }

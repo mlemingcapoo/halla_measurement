@@ -1,4 +1,6 @@
-
 /node_modules
 /bin
 /obj
+obj/desktop/
+bin/Desktop/
+config/database.config.json

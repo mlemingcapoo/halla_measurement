@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Transformation Task</title>
+    <link href="./css/output.css" rel="stylesheet">
+    <script src="./js/model-service.js"></script>
+    <script src="./js/model-spec-service.js"></script>
+    <script src="./js/product-service.js"></script>
+    <script src="./js/product-measurement-service.js"></script>
+    <script src="./js/measurement-process.js"></script>
+    <style>
+        /* Make select2 match your design */
+        .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-container--default .select2-selection--single {
+            height: 48px !important;
+            padding: 8px !important;
+            font-size: 1.5rem !important;
+            font-weight: 700 !important;
+            border-color: #e5e7eb !important;
+            border-radius: 0.5rem !important;
+            background-color: white !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 1.5 !important;
+            color: #111827 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            /* Add this to remove space for arrow */
+        }
+
+        /* Hide the Select2 arrow */
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            display: none !important;
+        }
+
+        /* Hide the Select2 clear button (x) */
+        .select2-container--default .select2-selection--single .select2-selection__clear {
+            display: none !important;
+        }
+
+        /* Rest of your existing Select2 styles... */
+    </style>
+</head>
+
+<body class="bg-white min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <img src="./images/logo.png" alt="Halla Electronics Vina" class="h-10">
+            <span class="text-gray-900 font-semibold text-lg">HALLA ELECTRONICS VINA</span>
+        </div>
+        <h1 class="text-2xl font-bold text-orange-600">Digital Transformation Task</h1>
+        <div class="text-gray-800 font-mono">
+            <span id="clock" class="text-lg">13:33:30</span>
+            <div class="text-sm">23/07/2024</div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 space-y-6">
+        <!-- Model Info and Chart Section -->
+        <div class="grid grid-cols-2 gap-6">
+            <!-- Left Column -->
+            <div class="bg-white rounded-lg shadow-md p-4 space-y-4">
+                <!-- Model Info -->
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex space-x-8">
+                        <div class="relative" style="min-width: 200px;">
+                            <label class="block text-sm text-gray-900 mb-1">Model</label>
+                            <select id="modelSelect"
+                                class="w-full text-2xl font-bold text-gray-900 bg-white border border-gray-300 rounded-lg px-4 py-2 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Chọn Model</option>
+                                <!-- Options will be populated dynamically -->
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none mt-6">
+                                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-gray-900">Total Product</span>
+                            <h2 id="totalProducts" class="text-2xl font-bold text-gray-900">-</h2>
+                        </div>
+                    </div>
+                </div>
+                <!-- Model Images Grid -->
+                <div class="model-images-grid grid grid-cols-2 gap-4">
+                    <!-- Images will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Right Column - Chart -->
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <!-- <canvas id="performanceChart" class="w-full h-full"></canvas> -->
+                <canvas id="measurementChart" class="w-full h-[calc(100%-2rem)]"></canvas>
+            </div>
+
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-center space-x-4">
+            <!-- <button data-modal="home"
+                class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+                Trang chủ
+            </button> -->
+            <button data-modal="measurement"
+                class="px-6 py-2 font-semibold bg-blue-400 shadow-lg text-white rounded-lg hover:bg-blue-500">
+                Bắt đầu đo
+            </button>
+            <button onclick="location.href='./pages/settings.html'"
+                class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+                Thiết lập
+            </button>
+            <button onclick="location.href='./pages/reports.html'"
+                class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+                Báo cáo
+            </button>
+            <button onclick="location.href='./pages/history.html'"
+                class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+                Lịch sử
+            </button>
+            <!-- <button data-modal="hardware"
+                class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+                Phần cứng
+            </button> -->
+
+
+            <button onclick="closeApp()"
+                class="px-6 py-2 font-semibold bg-red-500 shadow-lg text-white rounded-lg hover:bg-red-600">
+                Thoát
+            </button>
+            
+            <button onclick="refreshMeasurementsTable()"
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Làm mới
+            </button>
+        </div>
+
+        <!-- Results Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+
+            <!-- <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">STT
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Model
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">TS1
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">TS2
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">TS3
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Time
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">1</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">HUB-23</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">23.3</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">75.6</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">66.6</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">13:23:39 01-07-2024</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">2</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">HUB-23</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">22.3</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">73.6</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-red-500">81.6</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">13:23:39 01-07-2024</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">3</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">HUB-23</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">26.3</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-red-500">58.6</td>
+
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">67.6</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">13:23:39 01-07-2024</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">4</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">HUB-23</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">83.8</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">81.8</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap bg-green-500">88.8</td>
+                        <td class="px-6 py-4 text-gray-900 whitespace-nowrap">13:23:39 01-07-2024</td>
+                    </tr>
+                    
+                </tbody>
+            </table> -->
+            <div id="measurements-table" class="min-w-full divide-y divide-gray-200"></div>
+            <!-- Table will be populated here -->
+        </div>
+        <!-- <div class="bg-white shadow overflow-hidden border-b border-gray-200 rounded-lg">
+            <div id="measurements-table" class="min-w-full divide-y divide-gray-200">
+                
+            </div>
+        </div> -->
+    </div>
+
+    <!-- Modal Template -->
+    <!-- <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-lg w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Modal Title</h3>
+                <button type="button" onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="modal-content-container">
+            </div>
+        </div>
+    </div> -->
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div id="modal-container" class="bg-white rounded-lg p-6 w-full modal-container">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-black text-xl font-bold">Modal Title</h3>
+                <button type="button" onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="modal-content-container">
+                <!-- Modal content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+
+        function closeApp() {
+            console.log("closing");
+            window.electronAPI.closeApp();
+            console.log("closeApp done");
+        }
+        // Add these functions after initializeModelSelect
+        function saveSelectedModel(modelId) {
+            localStorage.setItem('selectedModelId', modelId);
+            console.log('Saved selected model:', modelId);
+        }
+
+        function loadSelectedModel() {
+            const savedModelId = localStorage.getItem('selectedModelId');
+            console.log('Loaded saved model:', savedModelId);
+            return savedModelId;
+        }
+        console.log("test from index ");
+        // Replace the existing event listener with this
+        // Replace the existing model change event handler (around line 275)
+        $('#modelSelect').on('change', async function () {
+            const modelId = $(this).val();
+            if (!modelId) return;
+
+            // Save the selected model
+            saveSelectedModel(modelId);
+
+            const modelCode = $(this).find('option:selected').text();
+            console.log('Model selected:', modelId, modelCode);
+
+            // Update any visible measurement modal
+            const currentModel = document.getElementById('current-model');
+            if (currentModel) {
+                currentModel.textContent = modelCode;
+            }
+
+            // Initialize measurement form if it exists
+            if (window.measurementForm) {
+                try {
+                    await window.measurementForm.initializeForModel(modelId);
+                } catch (error) {
+                    console.error('Error initializing measurement form:', error);
+                    showToast('Error initializing measurements', 'error');
+                }
+            }
+
+            // Trigger the refresh button click instead of directly loading measurements
+            refreshMeasurementsTable();
+        });
+        async function loadProductMeasurements(modelId) {
+            console.log('=== START MEASUREMENT LOADING ===');
+            console.log('Refreshing measurements for ModelId:', modelId);
+            const tableContainer = document.getElementById('measurements-table');
+            tableContainer.style.transition = 'opacity 0.2s';
+            tableContainer.style.opacity = '0.5';
+
+            if (!modelId) {
+                console.log('No model ID provided, skipping refresh');
+                return;
+            }
+
+            // Show loading state
+            tableContainer.innerHTML = `
+                <div class="flex items-center justify-center p-4">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    <span class="ml-2">Loading measurements...</span>
+                </div>
+            `;
+
+            try {
+                // Get model specifications
+                console.log('1. Fetching specifications...');
+                const specs = await ModelSpecificationService.getSpecifications(modelId);
+                console.log('1.1 Specifications received:', specs);
+                console.log('1.2 Number of specs:', specs.length);
+
+                try {
+                    // Get model details to get images
+                    console.log('Fetching model details for ID:', modelId);
+                    const model = await ModelService.getModelById(modelId);
+                    console.log('Received model details:', model);
+
+                    // Update the model images in the grid
+                    const imageGrid = document.querySelector('.model-images-grid');
+                    if (!imageGrid) {
+                        console.error('Image grid element not found');
+                        return;
+                    }
+
+                    if (model && model.Images && Array.isArray(model.Images) && model.Images.length > 0) {
+                        console.log('Found model images:', model.Images);
+                        imageGrid.innerHTML = model.Images.map((img, index) => {
+                            const imagePath = img.FilePath.startsWith('/') ? 
+                                `${window.location.origin}${img.FilePath}` : 
+                                `${window.location.origin}/${img.FilePath}`;
+                            
+                            return `
+                                <img src="${imagePath}" 
+                                     alt="Model View ${index + 1}" 
+                                     class="rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
+                                     onerror="this.src='./images/model${index + 1}.jpg'"
+                                     onload="console.log('Image loaded:', '${imagePath}')"
+                                >
+                            `;
+                        }).join('');
+                    } else {
+                        console.log('No images found, using defaults');
+                        imageGrid.innerHTML = `
+                            <h5 class="text-center text-muted">No images</h5>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error fetching model details:', error);
+                    // Show default images on error
+                    const imageGrid = document.querySelector('.model-images-grid');
+                    if (imageGrid) {
+                        imageGrid.innerHTML = `
+                            <h5 class="text-center text-muted">No images</h5>
+                        `;
+                    }
+                }
+
+                // Get products
+                console.log('2. Fetching products...');
+                let products = await ProductService.getProductsByModelId(modelId);
+                console.log('2.1 Products received:', products);
+                console.log('2.2 Number of products:', products?.length || 0);
+
+                // Building table HTML
+                console.log('3. Building table HTML...');
+                let tableHTML = `
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">STT</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Model</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Time</th>`;
+
+                // Fix the table headers section by removing the incorrect measurements reference
+                specs.forEach(spec => {
+                    tableHTML += `
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+            ${spec.SpecName} (${spec.Unit})
+        </th>`;
+                });
+                console.log('3.1 Headers built');
+
+                tableHTML += `</tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+
+                if (products && products.length > 0) {
+                    updateMeasurementChart(products, specs);
+                }
+
+                if (products && products.length > 0) {
+                    console.log('4. Processing measurements...');
+                    products.forEach((product, index) => {
+                        console.log(`4.1 Processing product ${index + 1}:`, product);
+                        const measurements = product.Measurements || [];
+                        console.log(`4.2 Measurements for product ${index + 1}:`, measurements);
+
+                        tableHTML += `<tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${index + 1}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${product.ModelCode || '--'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${new Date(product.MeasurementDate).toLocaleString() || '--'}
+            </td>`;
+
+                        specs.forEach(spec => {
+                            const measurement = measurements.find(m => m.SpecId === spec.SpecId);
+                            console.log(`4.3 Measurement for spec ${spec.SpecName}:`, measurement);
+                            const value = measurement ? measurement.Value.toFixed(2) : '--';
+                            const isWithinRange = measurement ?
+                                (measurement.Value >= spec.MinValue && measurement.Value <= spec.MaxValue) :
+                                true;
+
+                            // Updated color classes for more visibility
+                            const bgColorClass = isWithinRange ? 'bg-green-200' : 'bg-red-200';
+                            const textColorClass = isWithinRange ? 'text-green-900' : 'text-red-900';
+
+                            tableHTML += `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${bgColorClass} ${textColorClass}">${value}</td>`;
+                        });
+
+                        tableHTML += `</tr>`;
+                    });
+                } else {
+                    console.log('4. No products found, showing empty message');
+                    tableHTML += `
+                <tr>
+                    <td colspan="${3 + specs.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        No measurement data available for this model
+                    </td>
+                </tr>`;
+                }
+
+                tableHTML += `</tbody></table>`;
+                console.log('6. Final table HTML:', tableHTML.substring(0, 500) + '... (truncated)');
+
+                tableContainer.innerHTML = tableHTML;
+                console.log('7. Table HTML inserted into container');
+                console.log('=== END MEASUREMENT LOADING ===');
+
+            } catch (error) {
+                console.error('=== ERROR IN MEASUREMENT LOADING ===');
+                console.error('Error details:', error);
+                tableContainer.innerHTML = `
+            <div class="text-red-600 p-4">Error loading measurements: ${error.message}</div>`;
+            }
+            tableContainer.style.opacity = '1';
+        }
+
+        // Add this function to initialize an empty chart
+        function initEmptyChart() {
+            const ctx = document.getElementById('measurementChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (window.measurementChart instanceof Chart) {
+                window.measurementChart.destroy();
+            }
+
+            // Create new chart with empty dataset
+            window.measurementChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                        label: 'No Data',
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0,
+                        fill: false
+                    }
+                    
+                ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+        // Replace the existing refreshMeasurementsTable function
+        async function refreshMeasurementsTable() {
+            // Store current scroll position
+            const scrollPosition = window.scrollY;
+
+            const modelId = $('#modelSelect').val();
+            if (modelId) {
+                initEmptyChart();
+                await loadProductMeasurements(modelId);
+
+                // Restore scroll position
+                window.scrollTo({
+                    top: scrollPosition,
+                    behavior: 'instant' // Use 'instant' instead of 'smooth' to prevent visible scrolling
+                });
+            }
+        }
+        function updateMeasurementChart(products, specs) {
+            const ctx = document.getElementById('measurementChart').getContext('2d');
+
+            // Properly destroy existing chart
+            if (window.measurementChart instanceof Chart) {
+                window.measurementChart.destroy();
+            }
+
+            // Prepare data
+            const labels = products.map((_, index) => (index + 1).toString());
+            const datasets = [];
+
+            // Add datasets for each specification
+            specs.forEach((spec, index) => {
+                const data = products.map(product => {
+                    const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                    return measurement ? measurement.Value : null;
+                });
+
+                datasets.push({
+                    label: spec.SpecName,
+                    data: data,
+                    borderColor: [
+                        'rgb(59, 130, 246)',  // blue
+                        'rgb(249, 115, 22)',  // orange
+                        'rgb(139, 92, 246)'   // purple
+                    ][index % 3],
+                    tension: 0,
+                    fill: false,  // Add this to make lines transparent
+                    specIndex: index // Add specIndex to track related datasets
+                });
+
+                // Add Min line for this spec
+                datasets.push({
+                    label: `${spec.SpecName} Min`,
+                    data: Array(products.length).fill(spec.MinValue),
+                    borderColor: 'rgba(255, 0, 0, 0.5)',  // Semi-transparent red
+                    borderDash: [5, 5],
+                    borderWidth: 1,
+                    fill: false,
+                    pointRadius: 0,
+                    specIndex: index // Add specIndex to track related datasets
+                });
+
+                // Add Max line for this spec
+                datasets.push({
+                    label: `${spec.SpecName} Max`,
+                    data: Array(products.length).fill(spec.MaxValue),
+                    borderColor: 'rgba(255, 0, 0, 0.5)',  // Semi-transparent red
+                    borderDash: [5, 5],
+                    borderWidth: 1,
+                    fill: false,
+                    pointRadius: 0,
+                    specIndex: index // Add specIndex to track related datasets
+                });
+            });
+
+            try {
+                // Create new chart
+                window.measurementChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    // Lọc để chỉ hiện các nút của spec chính
+                                    filter: function(item, data) {
+                                        return !item.text.includes('Min') && !item.text.includes('Max');
+                                    }
+                                },
+                                onClick: function (e, legendItem, legend) {
+                                    const index = legendItem.datasetIndex;
+                                    const chart = legend.chart;
+                                    const specIndex = chart.data.datasets[index].specIndex;
+                                    
+                                    // Tìm datasets min/max tương ứng
+                                    const minDataset = chart.data.datasets.find(d => 
+                                        d.label === `${legendItem.text} Min` && d.specIndex === specIndex
+                                    );
+                                    const maxDataset = chart.data.datasets.find(d => 
+                                        d.label === `${legendItem.text} Max` && d.specIndex === specIndex
+                                    );
+                                    
+                                    // Toggle visibility của dataset chính
+                                    chart.getDatasetMeta(index).hidden = !chart.getDatasetMeta(index).hidden;
+                                    
+                                    // Toggle visibility của min/max lines theo dataset chính
+                                    if (minDataset && maxDataset) {
+                                        const minIndex = chart.data.datasets.indexOf(minDataset);
+                                        const maxIndex = chart.data.datasets.indexOf(maxDataset);
+                                        
+                                        chart.getDatasetMeta(minIndex).hidden = chart.getDatasetMeta(index).hidden;
+                                        chart.getDatasetMeta(maxIndex).hidden = chart.getDatasetMeta(index).hidden;
+                                    }
+                                    
+                                    chart.update();
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating chart:', error);
+            }
+        }
+
+
+        async function initializeModelSelect() {
+            const select = document.getElementById('modelSelect');
+
+            try {
+                const models = await ModelService.getAllModels();
+                models.sort((a, b) => a.ModelCode.localeCompare(b.ModelCode));
+
+                // Initial population
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.ModelId;
+                    option.textContent = model.ModelCode;
+                    select.appendChild(option);
+                });
+
+                // Initialize Select2
+                $(select).select2({
+                    placeholder: 'Select Model',
+                    allowClear: false,
+                    width: '100%',
+                    dropdownParent: select.parentElement,
+                    minimumResultsForSearch: 5,
+                    templateResult: function (data) {
+                        if (!data.id) return data.text;
+                        return $('<span class="font-semibold">' + data.text + '</span>');
+                    }
+                });
+
+                // Load saved model or select first model
+                const savedModelId = loadSelectedModel();
+                if (savedModelId && models.some(m => m.ModelId.toString() === savedModelId)) {
+                    select.value = savedModelId;
+                } else if (models.length > 0) {
+                    select.value = models[0].ModelId;
+                    saveSelectedModel(models[0].ModelId);
+                }
+
+                // Force a refresh of the measurements table
+                await refreshMeasurementsTable();
+
+                // Then trigger the change event
+                $(select).trigger('change');
+
+            } catch (error) {
+                console.error('Error loading models:', error);
+            }
+        }
+
+        async function refreshModelList() {
+            const select = document.getElementById('modelSelect');
+            const currentSelectedId = select.value;
+            const currentHTML = select.innerHTML;
+
+            try {
+                const models = await ModelService.getAllModels();
+                const newHTML = models.map(model =>
+                    `<option value="${model.ModelId}">${model.ModelCode}</option>`
+                ).join('');
+                if (newHTML !== currentHTML) {
+                    models.sort((a, b) => a.ModelCode.localeCompare(b.ModelCode));
+
+                    // Store existing options for comparison
+                    const existingOptions = Array.from(select.options).map(opt => ({
+                        value: opt.value,
+                        text: opt.textContent
+                    }));
+
+                    // Check if there are any changes
+                    const hasChanges = models.length !== existingOptions.length ||
+                        models.some(model => !existingOptions.find(opt =>
+                            opt.value === model.ModelId.toString() && opt.text === model.ModelCode
+                        ));
+
+                    if (hasChanges) {
+                        // Clear existing options
+                        select.innerHTML = '<option value="">Select Model</option>';
+
+                        // Populate new options
+                        models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.ModelId;
+                            option.textContent = model.ModelCode;
+                            select.appendChild(option);
+                        });
+
+                        // Reinitialize Select2
+                        $(select).select2('destroy');
+                        $(select).select2({
+                            placeholder: 'Select Model',
+                            allowClear: false,
+                            width: '100%',
+                            dropdownParent: select.parentElement,
+                            minimumResultsForSearch: 5,
+                            templateResult: function (data) {
+                                if (!data.id) return data.text;
+                                return $('<span class="font-semibold">' + data.text + '</span>');
+                            }
+                        });
+
+                        // Restore previous selection if it still exists
+                        if (currentSelectedId && models.some(m => m.ModelId.toString() === currentSelectedId)) {
+                            select.value = currentSelectedId;
+                            $(select).trigger('change');
+                        } else if (models.length > 0) {
+                            select.value = models[0].ModelId;
+                            saveSelectedModel(models[0].ModelId);
+                            $(select).trigger('change');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error refreshing models:', error);
+            }
+        }
+
+        // Add this at the top of your script section
+        window.services = {
+            modelSpec: null,
+            productSpec: null,
+            initialized: false
+        };
+
+        // Update the initializeServices function
+        async function initializeServices() {
+            if (window.services.initialized) return;
+
+            try {
+                // Instead of creating instances, use the static classes directly
+                window.services.modelSpec = ModelSpecificationService;
+                window.services.productSpec = ProductSpecificationService;
+                window.services.initialized = true;
+                console.log('Services initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize services:', error);
+                throw error;
+            }
+        }
+
+        // Update the openModal function
+        async function openModal(modalId, title, size = 'max-w-lg') {
+            console.log('Opening modal with ID:', modalId);
+
+            // Initialize services if needed
+            if (modalId === 'measurement' && !window.services.initialized) {
+                await initializeServices();
+            }
+
+            const modal = document.getElementById('modal');
+            const modalContainer = document.getElementById('modal-container');
+            const modalContent = document.getElementById('modal-content-container');
+
+            try {
+                const response = await fetch(`./modals/${modalId}-modal.html`);
+                if (!response.ok) throw new Error('Modal content not found');
+
+                const htmlContent = await response.text();
+                modalContent.innerHTML = htmlContent;
+
+                // Execute scripts
+                const scripts = modalContent.getElementsByTagName('script');
+                Array.from(scripts).forEach(script => {
+                    const newScript = document.createElement('script');
+                    Array.from(script.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.textContent = script.textContent;
+                    script.parentNode.replaceChild(newScript, script);
+                });
+
+                modal.classList.remove('hidden');
+                modal.querySelector('h3').textContent = title;
+                modalContainer.className = `bg-white rounded-lg p-6 w-full ${size}`;
+            } catch (error) {
+                console.error('Error loading modal:', error);
+                modalContent.innerHTML = 'Error loading modal content';
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content-container');
+
+            // Cleanup any intervals from measurement process
+            if (window.measurementForm && window.measurementForm.countdownInterval) {
+                clearInterval(window.measurementForm.countdownInterval);
+            }
+
+            // Check if we're closing a product-related modal
+            const isProductModal = modalContent.querySelector('#measurement-form') ||
+                modalContent.querySelector('#product-form') ||
+                modalContent.getAttribute('data-modal') === 'measurement';
+
+            // Clear the content container
+            modalContent.innerHTML = '';
+            modal.classList.add('hidden');
+
+            // Refresh table if it was a product modal
+            setTimeout(() => {  // Add small delay to ensure modal is fully closed
+                refreshMeasurementsTable();
+                refreshModelList();
+            }, 1);
+        }
+
+        // Update clock
+        function updateClock() {
+            requestAnimationFrame(() => {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                document.getElementById('clock').textContent = timeString;
+            });
+        }
+        function updateTotalProducts() {
+            // Get all products without model filter
+            ProductService.getAllProducts()
+                .then(products => {
+                    const totalProducts = products ? products.length : 0;
+                    document.getElementById('totalProducts').textContent = totalProducts;
+                })
+                .catch(error => {
+                    console.error('Error updating total products:', error);
+                    document.getElementById('totalProducts').textContent = '-';
+                });
+        }
+        // set to total product text to loading first
+        document.getElementById('totalProducts').textContent = 'loading...';
+        setInterval(updateClock, 1000);
+        // updateClock();
+        setInterval(updateTotalProducts, 5000); // Update every 5 seconds
+        updateTotalProducts();
+
+        document.querySelectorAll('button[data-modal]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                console.log('Modal button clicked:', button.getAttribute('data-modal'));
+                if (button.getAttribute('onclick') === 'closeModal()') return;
+
+                const modalId = button.getAttribute('data-modal');
+                console.log('Opening modal:', modalId);
+
+                const modalSizes = {
+                    'home': 'max-w-7xl',
+                    'settings': 'max-w-5xl',
+                    'reports': 'max-w-6xl',
+                    'history': 'max-w-3xl',
+                    'hardware': 'max-w-xl',
+                    'measurement': 'max-w-2xl',
+                };
+
+                openModal(modalId, button.textContent.trim(), modalSizes[modalId] || 'max-w-lg');
+            });
+        });
+        document.addEventListener('DOMContentLoaded', initializeModelSelect);
+        // Initialize the measurement form
+        // const measurementForm = new MeasurementForm();
+    </script>
+    <script>
+        // Global initialization
+        // window.measurementForm = new MeasurementForm();
+    </script>
+</body>
+
+</html>

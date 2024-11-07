@@ -11,7 +11,7 @@ class ModelSpecificationService {
                     DisplayOrder: parseInt(specData.displayOrder)
                 };
 
-                console.log('Sending specification data:', data);
+                //console.log('Sending specification data:', data);
                 window.electronAPI.send('spec-create', JSON.stringify(data));
                 window.electronAPI.receive('spec-created', (result) => resolve(JSON.parse(result)));
                 window.electronAPI.receive('spec-error', (error) => reject(JSON.parse(error)));
@@ -34,15 +34,16 @@ class ModelSpecificationService {
         return new Promise((resolve, reject) => {
             try {
                 const data = {
-                    SpecId: parseInt(specData.specId),
+                    SpecId: parseInt(specData.specId),  // Changed to match the C# model
                     ModelId: parseInt(specData.modelId),
                     SpecName: specData.specName,
                     MinValue: parseFloat(specData.minValue),
                     MaxValue: parseFloat(specData.maxValue),
                     Unit: specData.unit,
-                    DisplayOrder: parseInt(specData.displayOrder)
+                    DisplayOrder: parseInt(specData.displayOrder || 0)
                 };
 
+                //console.log('Sending update specification data:', data);
                 window.electronAPI.send('spec-update', JSON.stringify(data));
                 window.electronAPI.receive('spec-updated', (result) => resolve(JSON.parse(result)));
                 window.electronAPI.receive('spec-error', (error) => reject(JSON.parse(error)));
@@ -57,6 +58,18 @@ class ModelSpecificationService {
             window.electronAPI.send('spec-delete', JSON.stringify(parseInt(specId)));
             window.electronAPI.receive('spec-deleted', (result) => resolve(JSON.parse(result)));
             window.electronAPI.receive('spec-error', (error) => reject(JSON.parse(error)));
+        });
+    }
+
+    static async getSpecificationById(specId) {
+        return new Promise((resolve, reject) => {
+            try {
+                window.electronAPI.send('spec-getById', JSON.stringify(parseInt(specId)));
+                window.electronAPI.receive('spec-detail', (result) => resolve(JSON.parse(result)));
+                window.electronAPI.receive('spec-error', (error) => reject(JSON.parse(error)));
+            } catch (error) {
+                reject(error);
+            }
         });
     }
 } 
