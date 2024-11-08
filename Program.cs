@@ -1,7 +1,6 @@
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -95,39 +94,34 @@ builder.Logging.AddDebug();
 
 var app = builder.Build();
 
-async Task<BrowserWindow> CreateLoadingWindow()
+// Initialize database and create tables
+using (var scope = app.Services.CreateScope())
 {
-    var loadingWindow = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
     {
-        Width = 350,
-        Height = 350,
-        Show = false,
-        Frame = false,
-        Transparent = true,
-        WebPreferences = new WebPreferences
-        {
-            NodeIntegration = false,
-            ContextIsolation = true
-        },
-        AutoHideMenuBar = true,
-        HasShadow = false
-    });
-
-    // Load the loading screen HTML
-    loadingWindow.LoadURL(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "loading.html"));
-    loadingWindow.Show();
-    return loadingWindow;
-}
-
-// Move database initialization into a separate function
-async Task InitializeDatabase()
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Console.WriteLine("Attempting database initialization and migration...");
-        await dbContext.Database.MigrateAsync();
+        dbContext.Database.Migrate();
         Console.WriteLine("Database initialization and migration completed successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Có lỗi khi kết nối với cơ sở dữ liệu: {ex.Message}");
+        // Log the full exception details
+        Console.WriteLine($"Exception details: {ex}");
+        // display notification to the user
+        await ShowDatabaseErrorNotification(ex.Message);
+        // Attempt to ensure database is created even if migrations fail
+        try {
+            Console.WriteLine("Attempting to ensure database is created...");
+            dbContext.Database.EnsureCreated();
+            Console.WriteLine("Database creation completed.");
+        }
+        catch (Exception createEx) {
+            Console.WriteLine($"Failed to create database: {createEx.Message}");
+            await ShowDatabaseErrorNotification(createEx.Message);
+            throw; // Re-throw if we can't even create the database
+        }
     }
 }
 
@@ -163,72 +157,75 @@ if (HybridSupport.IsElectronActive)
 {
     app.Lifetime.ApplicationStarted.Register(async () =>
     {
-        try
+        // Check for single instance using Electron's mechanism
+        var isSingleInstance = await Electron.App.RequestSingleInstanceLockAsync((args, workingDirectory) => {
+            // This callback will be called when subsequent instances are launched
+        });
+        if (!isSingleInstance)
         {
-            // Create and show loading window first
-            var loadingWindow = await CreateLoadingWindow();
-    
-            try
+            Electron.App.Quit();
+            return;
+        }
+
+        // Handle second instance attempts
+        await Electron.App.On("second-instance", async (args) =>
+        {
+            var windows = Electron.WindowManager.BrowserWindows;
+            var mainWindow = windows.FirstOrDefault();
+            if (mainWindow != null)
             {
-                // Initialize database
-                await InitializeDatabase();
-
-                // Create main window
-                var window = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
+                if (await mainWindow.IsMinimizedAsync())
                 {
-                    Width = 1280,
-                    Height = 720,
-                    Show = false,
-                    Icon = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "favicon.ico"),
-                    WebPreferences = new WebPreferences
-                    {
-                        NodeIntegration = false,
-                        ContextIsolation = true,
-                        Preload = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "preload.js")
-                    },
-                    AutoHideMenuBar = true,
-                    EnableLargerThanScreen = false,
-                    HasShadow = false
-                });
-
-                // Setup IPC
-                Console.WriteLine("Setting up IPC...");
-                using (var scope = app.Services.CreateScope())
-                {
-                    var controller = scope.ServiceProvider.GetRequiredService<ElectronController>();
-                    controller.SetupIPC(window);
+                    mainWindow.Restore();
                 }
-
-                // Load main window URL
-                var url = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "index.html");
-                Console.WriteLine($"Loading URL: {url}");
-                window.LoadURL(url);
-
-                // When main window is ready
-                window.OnReadyToShow += () =>
-                {
-                    window.Show();
-                    loadingWindow.Close();
-                };
-
-                // Add quit event to main window instead
-                window.OnClosed += () => Electron.App.Quit();
+                mainWindow.Focus();
             }
-            catch (Exception ex)
+        });
+
+        Console.WriteLine("Electron application starting...");
+        var window = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
+        {
+            Width = 1280,
+            Height = 720,
+            Show = false,
+            Icon = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "favicon.ico"),
+            WebPreferences = new WebPreferences
             {
-                Console.WriteLine($"Error during startup: {ex.Message}");
-                // Add quit event to loading window only if we encounter an error
-                loadingWindow.OnClosed += () => Electron.App.Quit();
-                await ShowDatabaseErrorNotification("Không thể kết nối tới cơ sở dữ liệu. Vui lòng kiểm tra lại kết nối mạng, và mở lại ứng dụng.\n\nHoặc liên hệ với kỹ thuật viên để được hỗ trợ.\n\n" + ex.Message);
-                loadingWindow.Close();
-                return;
+                NodeIntegration = false,
+                ContextIsolation = true,
+                Preload = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "preload.js")
+            },
+            // Add these performance-related options
+            AutoHideMenuBar = true,
+            EnableLargerThanScreen = false,
+            HasShadow = false
+        });
+
+        // Show the window once it's ready to prevent flickering
+        window.OnReadyToShow += () => window.Show();
+
+        // Close the application when the window is closed
+        window.OnClosed += () => Electron.App.Quit();
+
+        try 
+        {
+            Console.WriteLine("Setting up IPC...");
+            using (var scope = app.Services.CreateScope())
+            {
+                var controller = scope.ServiceProvider.GetRequiredService<ElectronController>();
+                controller.SetupIPC(window);
             }
+            Console.WriteLine("IPC setup complete");
+
+            // var url = $"http://localhost:8123/index.html";
+            var url = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "index.html");
+            Console.WriteLine($"Loading URL: {url}");
+            window.LoadURL(url);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Critical error: {ex.Message}");
-            await ShowDatabaseErrorNotification($"Lỗi không xác định, vui lòng kiểm tra lại kết nối mạng và mở lại ứng dụng.\n\n{ex.Message}");
-            Electron.App.Quit();
+            Console.WriteLine($"Error during startup: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     });
 }
@@ -255,7 +252,7 @@ if (!app.Environment.IsDevelopment())
     // Setup a basic web server for serving static files in production
     app.UseDefaultFiles();
     app.UseStaticFiles();
-
+    
     // Add fallback route
     app.MapFallbackToFile("index.html");
 }
