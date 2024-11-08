@@ -12,7 +12,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ModelSpecification> ModelSpecifications { get; set; } = null!;
     public DbSet<Product> Products { get; set; } = null!;
     public DbSet<Measurement> Measurements { get; set; } = null!;
-    public DbSet<Image> Images { get; set; }
+    public DbSet<Models.Image> Images { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,7 +31,7 @@ public class ApplicationDbContext : DbContext
             .Property(m => m.MeasuredAt)
             .HasColumnType("datetime2");
 
-        modelBuilder.Entity<Image>()
+        modelBuilder.Entity<Models.Image>()
             .Property(i => i.UploadedAt)
             .HasColumnType("datetime2");
 
@@ -72,7 +72,7 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(m => m.SpecId)
             .OnDelete(DeleteBehavior.NoAction);
 
-        modelBuilder.Entity<Image>()
+        modelBuilder.Entity<Models.Image>()
             .HasOne(i => i.Model)
             .WithMany(m => m.Images)
             .HasForeignKey(i => i.ModelId)
