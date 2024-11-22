@@ -21,40 +21,62 @@ namespace halla_measurement_1.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
 
-            modelBuilder.Entity("Models.Image", b =>
+            modelBuilder.Entity("Models.ActionHistory", b =>
                 {
-                    b.Property<int>("ImageId")
+                    b.Property<int>("ActionHistoryId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ImageId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ActionHistoryId"), 1L, 1);
 
-                    b.Property<string>("ContentType")
+                    b.Property<string>("ActionType")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FileName")
+                    b.Property<string>("ColumnName")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("FilePath")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("ModelId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UploadedAt")
+                    b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("datetime2");
 
-                    b.HasKey("ImageId");
+                    b.Property<string>("NewValue")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.HasIndex("ModelId");
+                    b.Property<string>("OldValue")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.ToTable("Images");
+                    b.Property<int>("RecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("ActionHistoryId");
+
+                    b.ToTable("ActionHistories");
+                });
+
+            modelBuilder.Entity("Models.Equip", b =>
+                {
+                    b.Property<int>("EquipId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EquipId"), 1L, 1);
+
+                    b.Property<string>("EquipName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("EquipId");
+
+                    b.ToTable("Equips");
                 });
 
             modelBuilder.Entity("Models.Measurement", b =>
@@ -65,9 +87,6 @@ namespace halla_measurement_1.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MeasurementId"), 1L, 1);
 
-                    b.Property<bool>("IsWithinSpec")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("MeasuredAt")
                         .HasColumnType("datetime2");
 
@@ -77,12 +96,14 @@ namespace halla_measurement_1.Migrations
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
-                    b.Property<int>("SpecId")
+                    b.Property<int?>("SpecId")
                         .HasColumnType("int");
 
                     b.HasKey("MeasurementId");
 
                     b.HasIndex("MeasuredAt");
+
+                    SqlServerIndexBuilderExtensions.IsClustered(b.HasIndex("MeasuredAt"), false);
 
                     b.HasIndex("ProductId");
 
@@ -102,26 +123,65 @@ namespace halla_measurement_1.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Description")
+                    b.Property<string>("Machine")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ModelCode")
+                    b.Property<string>("Material")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PartName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PartNo")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("ModelName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime?>("ProductDate")
+                        .HasColumnType("datetime2");
 
-                    b.Property<int>("TotalProducts")
-                        .HasColumnType("int");
+                    b.Property<string>("WO")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ModelId");
 
-                    b.HasIndex("ModelCode")
+                    b.HasIndex("PartNo")
                         .IsUnique();
 
+                    SqlServerIndexBuilderExtensions.IsClustered(b.HasIndex("PartNo"), false);
+
                     b.ToTable("Models");
+                });
+
+            modelBuilder.Entity("Models.ModelImage", b =>
+                {
+                    b.Property<int>("ImageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ImageId"), 1L, 1);
+
+                    b.Property<string>("Base64Data")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ModelId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ImageId");
+
+                    b.HasIndex("ModelId");
+
+                    b.ToTable("ModelImages");
                 });
 
             modelBuilder.Entity("Models.ModelSpecification", b =>
@@ -132,13 +192,14 @@ namespace halla_measurement_1.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SpecId"), 1L, 1);
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
+                    b.Property<string>("EquipName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<double>("MaxValue")
+                    b.Property<double?>("MaxValue")
                         .HasColumnType("float");
 
-                    b.Property<double>("MinValue")
+                    b.Property<double?>("MinValue")
                         .HasColumnType("float");
 
                     b.Property<int>("ModelId")
@@ -172,7 +233,7 @@ namespace halla_measurement_1.Migrations
                     b.Property<int>("ModelId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("MoldNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -180,20 +241,11 @@ namespace halla_measurement_1.Migrations
 
                     b.HasIndex("MeasurementDate");
 
+                    SqlServerIndexBuilderExtensions.IsClustered(b.HasIndex("MeasurementDate"), false);
+
                     b.HasIndex("ModelId");
 
                     b.ToTable("Products");
-                });
-
-            modelBuilder.Entity("Models.Image", b =>
-                {
-                    b.HasOne("Models.Model", "Model")
-                        .WithMany("Images")
-                        .HasForeignKey("ModelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Model");
                 });
 
             modelBuilder.Entity("Models.Measurement", b =>
@@ -207,12 +259,22 @@ namespace halla_measurement_1.Migrations
                     b.HasOne("Models.ModelSpecification", "Specification")
                         .WithMany()
                         .HasForeignKey("SpecId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Product");
 
                     b.Navigation("Specification");
+                });
+
+            modelBuilder.Entity("Models.ModelImage", b =>
+                {
+                    b.HasOne("Models.Model", "Model")
+                        .WithMany("Images")
+                        .HasForeignKey("ModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Model");
                 });
 
             modelBuilder.Entity("Models.ModelSpecification", b =>
@@ -220,7 +282,7 @@ namespace halla_measurement_1.Migrations
                     b.HasOne("Models.Model", "Model")
                         .WithMany("Specifications")
                         .HasForeignKey("ModelId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Model");

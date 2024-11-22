@@ -40,6 +40,71 @@
         .select2-container--default .select2-selection--single .select2-selection__clear {
             display: none !important;
         }
+
+        #measurements-table thead {
+            position: sticky;
+            top: 0;
+            background: #F9FAFB;
+            z-index: 10;
+        }
+
+        #measurements-table th,
+        #measurements-table td {
+            min-width: 120px;
+            white-space: nowrap;
+        }
+
+        #measurements-table th:nth-child(1),
+        #measurements-table td:nth-child(1) {
+            position: sticky;
+            left: 0;
+            background: inherit;
+            z-index: 9;
+        }
+
+        .overflow-x-auto {
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .overflow-x-auto::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Add these measurement cell styles */
+        .measurement-cell {
+            padding: 1rem 1.5rem;
+            white-space: nowrap;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .measurement-cell.in-range {
+            background-color: rgb(187 247 208);
+            color: rgb(20 83 45);
+        }
+
+        .measurement-cell.out-of-range {
+            background-color: rgb(254 202 202);
+            color: rgb(127 29 29);
+        }
+
+        /* Table styles */
+        .table-cell-base {
+            padding: 1rem 1.5rem;
+            white-space: nowrap;
+            font-size: 0.875rem;
+        }
+
+        .table-header {
+            padding: 0.75rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: rgb(17 24 39);
+        }
     </style>
 </head>
 
@@ -65,26 +130,80 @@
 
     <!-- Main Content -->
     <div class="container mx-auto p-6 space-y-6">
-        <!-- Model Selection -->
+        <!-- Filter Section -->
         <div class="bg-white rounded-lg shadow-md p-4">
-            <div class="relative" style="min-width: 200px;">
-                <label class="block text-sm text-gray-900 mb-1">Model</label>
-                <select style="color: #111827;" id="modelSelect"
-                    class="w-full text-2xl font-bold text-gray-900 bg-white border border-gray-300 rounded-lg px-4 py-2 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Chọn Model</option>
-                </select>
-                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none mt-6">
-                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
+            <h2 class="text-lg font-semibold mb-4 text-black">Filters</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Date Range -->
+                <div class="space-y-2">
+                    <label class="block text-sm text-black">From Date</label>
+                    <input type="date" id="dateFrom" 
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-black">
                 </div>
+                <div class="space-y-2">
+                    <label class="block text-sm text-black">To Date</label>
+                    <input type="date" id="dateTo" 
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-black">
+                </div>
+                <!-- Model Select -->
+                <div class="space-y-2">
+                    <label class="block text-sm text-black">Model (Optional)</label>
+                    <select id="modelFilter" class="w-full text-black">
+                        <option value="" class="text-black">All Models</option>
+                    </select>
+                </div>
+                <!-- Mold Number -->
+                <div class="space-y-2">
+                    <label class="block text-sm text-black">Mold Number (Optional)</label>
+                    <select id="moldFilter" class="w-full text-black">
+                        <option value="" class="text-black">All Molds</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Filter Actions -->
+            <div class="mt-4 flex justify-end space-x-3">
+                <button id="resetFilters" class="px-4 py-2 text-black border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Reset
+                </button>
+                <button id="applyFilters" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    Apply Filters
+                </button>
             </div>
         </div>
 
-        <!-- Results Table -->
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div id="measurements-table" class="min-w-full divide-y divide-gray-200">
-                <!-- Table will be populated here -->
+        <!-- Results Section -->
+        <div class="bg-white rounded-lg shadow-md p-4">
+            <!-- Summary View (Initially Visible) -->
+            <div id="summaryView" class="space-y-4">
+                <h2 class="text-lg font-semibold text-black">Measurement Summary</h2>
+                <div id="modelSummaryList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Model summary cards will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Detailed View (Hidden initially) -->
+            <div id="detailView" class="hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <h2 class="text-lg font-semibold text-black">Measurement Details</h2>
+                        <button id="exportToExcel" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Export to Excel
+                        </button>
+                    </div>
+                    <button id="backToSummary" class="text-black hover:text-blue-600 flex items-center">
+                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back to Summary
+                    </button>
+                </div>
+                <div id="measurements-table" class="min-w-full divide-y divide-gray-200">
+                    <!-- Measurement details will be inserted here -->
+                </div>
             </div>
         </div>
     </div>
@@ -92,124 +211,13 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="../js/PopupUtil.js"></script>
 
-    <script>
-        async function initializeModelSelect() {
-            try {
-                const models = await ModelService.getAllModels();
-                const select = document.getElementById('modelSelect');
-                select.innerHTML = '<option style="color: #111827;" value="">Chọn Model</option>';
-                models.forEach(model => {
-                    select.innerHTML += `<option style="color: #111827;" value="${model.ModelId}">${model.ModelCode}</option>`;
-                });
-
-                $(select).select2({
-                    placeholder: 'Chọn Model',
-                    allowClear: false,
-                    width: '100%',
-                    dropdownParent: select.parentElement,
-                    minimumResultsForSearch: 5
-                });
-
-                $(select).on('change', function() {
-                    const modelId = $(this).val();
-                    if (modelId) {
-                        loadProductMeasurements(modelId);
-                    }
-                });
-            } catch (error) {
-                console.error('Error initializing model select:', error);
-            }
-        }
-
-        async function loadProductMeasurements(modelId) {
-            const tableContainer = document.getElementById('measurements-table');
-            tableContainer.style.opacity = '0.5';
-
-            try {
-                const specs = await ModelSpecificationService.getSpecifications(modelId);
-                const products = await ProductService.getProductsByModelId(modelId);
-
-                let tableHTML = `
-                    <table class="min-w-full">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">STT</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Model</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Time</th>`;
-
-                specs.forEach(spec => {
-                    tableHTML += `
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                            ${spec.SpecName} (${spec.Unit})
-                        </th>`;
-                });
-
-                tableHTML += `</tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
-
-                if (products && products.length > 0) {
-                    products.forEach((product, index) => {
-                        const measurements = product.Measurements || [];
-
-                        tableHTML += `
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${index + 1}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${product.ModelCode || '--'}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    ${new Date(product.MeasurementDate).toLocaleString() || '--'}
-                                </td>`;
-
-                        specs.forEach(spec => {
-                            const measurement = measurements.find(m => m.SpecId === spec.SpecId);
-                            const value = measurement ? measurement.Value.toFixed(2) : '--';
-                            const isWithinRange = measurement ?
-                                (measurement.Value >= spec.MinValue && measurement.Value <= spec.MaxValue) :
-                                true;
-
-                            const bgColorClass = isWithinRange ? 'bg-green-200' : 'bg-red-200';
-                            const textColorClass = isWithinRange ? 'text-green-900' : 'text-red-900';
-
-                            tableHTML += `
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${bgColorClass} ${textColorClass}">
-                                    ${value}
-                                </td>`;
-                        });
-
-                        tableHTML += `</tr>`;
-                    });
-                } else {
-                    tableHTML += `
-                        <tr>
-                            <td colspan="${3 + specs.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                No measurement data available for this model
-                            </td>
-                        </tr>`;
-                }
-
-                tableHTML += `</tbody></table>`;
-                tableContainer.innerHTML = tableHTML;
-
-            } catch (error) {
-                console.error('Error loading measurements:', error);
-                tableContainer.innerHTML = `
-                    <div class="text-red-600 p-4">Error loading measurements: ${error.message}</div>`;
-            }
-            tableContainer.style.opacity = '1';
-        }
-
-        // Initialize clock
-        function updateClock() {
-            const now = new Date();
-            $('#clock').text(now.toLocaleTimeString());
-            $('#date').text(now.toLocaleDateString());
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeModelSelect();
-            setInterval(updateClock, 1000);
-            updateClock();
-        });
-    </script>
+    <!-- Import services first -->
+    <script src="../js/excel-service.js"></script>
+    
+    <!-- Import the history.js last -->
+    <script src="./js/history.js"></script>
 </body>
 
 </html>

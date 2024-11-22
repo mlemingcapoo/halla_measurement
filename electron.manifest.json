@@ -5,7 +5,7 @@
   },
   "name": "HallaMeasurement",
   "author": "",
-  "singleInstance": false,
+  "singleInstance": true,
   "environment": "Production",
   "build": {
     "appId": "com.hallameasurement.app",
@@ -36,5 +36,7 @@
   "ports": {
     "http": 8123,
     "https": 80
-  }
+  },
+  "electronPort": 8000,
+  "aspCoreBackendPort": 8001
 }

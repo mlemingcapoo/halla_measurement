@@ -1,815 +1,1422 @@
+let selectedModelId = null;
 
-document.addEventListener('DOMContentLoaded', function () {
-    console.log("Settings modal loaded");
-    setInterval(updateClock, 1000);
-    updateClock();
+$(document).ready(function () {
+    console.log('🚀 Page loaded, initializing...');
+
+    // Verify all required elements exist
+    const requiredElements = {
+        modelModal: $('#model-modal'),
+        specModal: $('#spec-modal'),
+        modelForm: $('#model-form'),
+        specForm: $('#spec-form'),
+        modelsList: $('#models-list'),
+        specsList: $('#specs-list'),
+        modelSearch: $('#model-search'),
+        specSearch: $('#spec-search')
+    };
+
+    // Check for missing elements
+    const missingElements = Object.entries(requiredElements)
+        .filter(([_, element]) => element.length === 0)
+        .map(([name]) => name);
+
+    if (missingElements.length > 0) {
+        console.error('❌ Missing required elements:', missingElements);
+        return;
+    }
+    console.log('✅ All required elements found');
+
+    // Initialize page
+    initializePage();
+    setupEventListeners();
+
+    // Set up modal close on background click
+    const $modals = $('.modal');
+    console.log('🔍 Found modals:', $modals.length);
+
+    $modals.on('click', function (e) {
+        if (e.target === this) {
+            $(this).addClass('hidden');
+        }
+    });
+
+    // Add click handlers for modal open buttons
+    const $modelButton = $('#new-model-btn');
+    const $specButton = $('#new-spec-btn');
+    const $importExcelButton = $('#import-excel-btn');
+
+    if ($modelButton.length && $specButton.length) {
+        console.log('✅ Found modal trigger buttons');
+
+        $modelButton.on('click', () => {
+            console.log('👆 New Model button clicked');
+            showModelForm('create');
+        });
+
+        $specButton.on('click', () => {
+            console.log('👆 New Specification button clicked');
+            showSpecForm('create');
+        });
+
+        $importExcelButton.on('click', () => {
+            console.log('👆 Import Excel button clicked');
+            showImportExcelModal();
+        });
+    } else {
+        console.error('❌ Modal trigger buttons not found');
+    }
+
+    // Initialize spec button state
+    updateSpecButtonState();
 });
 
-// Initialize clock
+// Page Initialization
+function initializePage() {
+    updateClock();
+    setInterval(updateClock, 1000);
+    loadModels();
+}
+
+// Clock Functions
 function updateClock() {
     const now = new Date();
     $('#clock').text(now.toLocaleTimeString());
     $('#date').text(now.toLocaleDateString());
 }
-loadModels();
-// Tab switching
-console.log("Initializing tab switching");
 
-// Add this function after your other functions
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
+// Event Listeners Setup
+function setupEventListeners() {
+    console.log('🎯 Setting up event listeners...');
 
-    // Set classes based on type
-    const baseClasses = 'flex items-center p-4 mb-4 rounded-lg shadow-lg transition-all duration-500 transform translate-x-full';
-    const typeClasses = type === 'success'
-        ? 'text-green-800 bg-green-50 dark:bg-gray-800 dark:text-green-400'
-        : 'text-red-800 bg-red-50 dark:bg-gray-800 dark:text-red-400';
-
-    toast.className = `${baseClasses} ${typeClasses}`;
-
-    // Add icon based on type
-    const icon = type === 'success'
-        ? '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>'
-        : '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>';
-
-    toast.innerHTML = `
-        ${icon}
-        <span class="text-sm font-semibold">${message}</span>
-    `;
-
-    container.appendChild(toast);
-
-    // Animate in
-    setTimeout(() => {
-        toast.classList.remove('translate-x-full');
-    }, 10);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        toast.classList.add('translate-x-full');
-        setTimeout(() => {
-            container.removeChild(toast);
-        }, 500);
-    }, 3000);
-}
-
-function handleSpecificationsTabClick() {
-    const modelSelect = document.getElementById('specifications-model-select');
-    if (modelSelect && modelSelect.value) {
-        // If there's a selected model, load its specifications
-        loadSpecifications(modelSelect.value);
-    }
-}
-
-// Update your existing tab switching code
-document.querySelectorAll('.tab-button').forEach(button => {
-
-    button.addEventListener('click', (e) => {
-        console.log("Tab button found");
-        // Update button styles
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            btn.classList.remove('border-blue-500', 'text-blue-600');
-            btn.classList.add('text-gray-500');
-        });
-        button.classList.remove('text-gray-500');
-        button.classList.add('border-blue-500', 'text-blue-600');
-
-        // Show corresponding tab content
-        const tabId = button.getAttribute('data-tab');
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.add('hidden');
-        });
-
-        const targetTab = document.getElementById(`${tabId}-tab`);
-        if (targetTab) {
-            targetTab.classList.remove('hidden');
-            console.log("Target tab found");
-            // If switching to specifications tab, trigger specifications load
-            if (tabId === 'specifications') {
-                handleSpecificationsTabClick();
-            }
-        }
+    // Model search with 2 second debounce
+    $('#model-search').on('input', function (e) {
+        console.log('🔍 Search input detected:', $(this).val());
+        filterModels($(this).val());
     });
-});
 
-// Function to switch to specs tab and select model
-function switchToSpecs(modelId) {
-    // Switch to specifications tab
-    document.querySelector('[data-tab="specifications"]').click();
-
-    // Select the model in the dropdown
-    const modelSelects = document.querySelectorAll('select');
-    modelSelects.forEach(select => {
-        select.value = modelId;
+    // Spec search
+    $('#spec-search').on('input', function (e) {
+        console.log('🔍 Spec search input detected:', $(this).val());
+        filterSpecs($(this).val());
     });
-}
 
-async function editModel(modelId) {
-    try {
-        console.log('Starting editModel with modelId:', modelId);
-        const model = await ModelService.getModelById(modelId);
-        console.log('Retrieved model data:', model);
+    // Form submissions
+    $('#model-form').on('submit', function (e) {
+        e.preventDefault();
+        handleModelSubmit(e);
+    });
 
-        const form = document.getElementById('model-form');
-        const formTitle = document.getElementById('form-title');
-        const imagePreview = document.getElementById('image-preview');
-        const imageUpload = document.getElementById('image-upload');
+    $('#spec-form').on('submit', function (e) {
+        e.preventDefault();
+        handleSpecSubmit(e);
+    });
 
-        // Populate basic form fields
-        form.querySelector('[name="modelCode"]').value = model.ModelCode;
-        form.querySelector('[name="modelName"]').value = model.ModelName;
-        form.querySelector('[name="description"]').value = model.Description || '';
+    // Equipment form submission
+    $('#equip-form').on('submit', function (e) {
+        e.preventDefault();
+        handleEquipSubmit(e);
+    });
 
-        // Clear existing preview
-        imagePreview.innerHTML = '';
-        console.log('Checking for images:', model.Images);
+    // Log that event listeners are set up
+    console.log('✅ Event listeners set up successfully');
 
-        // Create a DataTransfer object for the file input
-        const dataTransfer = new DataTransfer();
+    // Add Equipment button click handler
+    $('#add-equip-btn').on('click', function () {
+        showEquipModal();
+    });
 
-        // Load existing images
-        if (model.Images && model.Images.length > 0) {
-            console.log(`Found ${model.Images.length} images to load`);
-
-            for (const image of model.Images) {
-                console.log('Processing image:', image);
-
-                // Create preview container
-                const container = document.createElement('div');
-                container.className = 'relative group';
-                container.dataset.imageId = image.ImageId;
-
-                container.innerHTML = `
-                    <img src="${image.FilePath}" class="w-full h-32 object-cover rounded-lg" />
-                    <button type="button" 
-                            class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity" 
-                            onclick="deleteModelImage(${image.ImageId})">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                `;
-                imagePreview.appendChild(container);
-                console.log('Added preview container for image:', image.FileName);
-
-                // Fetch the image and create a File object
-                try {
-                    console.log('Fetching image from:', image.FilePath);
-                    const response = await fetch(image.FilePath);
-                    console.log('Fetch response:', response);
-                    const blob = await response.blob();
-                    const file = new File([blob], image.FileName, {
-                        type: image.ContentType
-                    });
-                    dataTransfer.items.add(file);
-                    console.log('Successfully added file to DataTransfer:', file.name);
-                } catch (error) {
-                    console.error('Error loading image:', error);
-                }
-            }
-
-            // Update the file input with existing files
-            imageUpload.files = dataTransfer.files;
-            console.log('Updated file input with', dataTransfer.files.length, 'files');
-        } else {
-            console.log('No images found for this model');
-        }
-
-        // Set editing state
-        form.dataset.editing = modelId;
-        formTitle.textContent = `Edit Model: ${model.ModelCode}`;
-        console.log('Completed editModel setup');
-
-    } catch (error) {
-        console.error('Error in editModel:', error);
-        showToast('Error loading model: ' + error.message, 'error');
-    }
-}
-
-// Add this function to your script section
-function initNewModel() {
-    const form = document.getElementById('model-form');
-    const formTitle = document.getElementById('form-title');
-
-    // Clear the form
-    form.reset();
-
-    // Remove editing state if exists
-    delete form.dataset.editing;
-
-    // Update title
-    formTitle.textContent = 'Create New Model';
-
-    // Optional: Show a toast
-    showToast('Sẵn sàng thêm model mới');
-
-    // Optional: Focus the first input
-    form.querySelector('[name="modelCode"]').focus();
-
-    // image clear
-    document.getElementById('image-preview').innerHTML = '';
-}
-
-// Image upload preview with multiple image support
-document.getElementById('image-upload').addEventListener('change', function (e) {
-    const preview = document.getElementById('image-preview');
-    const files = e.target.files;
-
-    // Clear preview if no files selected
-    if (files.length === 0) {
-        preview.innerHTML = '';
-        return;
-    }
-
-    // Process each selected file
-    [...files].forEach(file => {
-        // Create container for image and remove button
-        const container = document.createElement('div');
-        container.className = 'relative group';
-
-        // Create image preview
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            // Create image element
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.className = 'w-full h-32 object-cover rounded-lg';
-
-            // Create remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity';
-            removeBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            `;
-
-            // Add remove functionality
-            removeBtn.onclick = function (e) {
-                e.preventDefault();
-                container.remove();
-
-                // Update the file input
-                const dt = new DataTransfer();
-                const input = document.getElementById('image-upload');
-                const { files } = input;
-
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    if (file !== this.file) dt.items.add(file);
-                }
-
-                input.files = dt.files;
-            };
-
-            // Add image and remove button to container
-            container.appendChild(img);
-            container.appendChild(removeBtn);
-            preview.appendChild(container);
+    $('#browseExcelFolder').on('click', async () => {
+        $('#browseExcelFolder').prop('disabled', true);
+        console.log('👆 Browse Excel Folder button clicked');
+    
+        // Define a handler for the folder-selected event
+        const folderSelectedHandler = (folderPath) => {
+            console.log('👆 Received folder-selected message:', folderPath);
+            $('#folderPicker').val(folderPath);
+            $('#scanFolderBtn').removeClass('hidden');
+            scanFolder();
+    
+            // Remove the event listener after handling the event
+            window.electronAPI.receive('folder-selected', folderSelectedHandler); // RemoveListener equivalent for your context bridge
         };
-
-        reader.readAsDataURL(file);
+    
+        // Attach the handler
+        window.electronAPI.receive('folder-selected', folderSelectedHandler);
+    
+        // Trigger the folder selection
+        await window.electronAPI.send('choose-folder');
+        console.log('👆 Sent choose-folder message');
+    
+        $('#browseExcelFolder').prop('disabled', false);
     });
-});
+    
 
-// Load all models when modal opens
-async function loadModels() {
-    try {
-        const models = await ModelService.getAllModels();
-        const modelList = document.querySelector('#models-tab .overflow-y-auto .space-y-4');
-        modelList.innerHTML = ''; // Clear existing items
-
-        for (const model of models) {
-            const modelElement = document.createElement('div');
-            modelElement.className = 'border rounded-lg p-4 hover:bg-gray-50';
-            modelElement.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
-                    <h4 class="font-semibold">${model.ModelCode}</h4>
-                    <div class="space-x-2">
-                        <button class="text-blue-600 hover:text-blue-800" onclick="editModel(${model.ModelId})">Edit</button>
-                        <button class="text-blue-600 hover:text-blue-800" onclick="switchToSpecs(${model.ModelId})">Edit Specs</button>
-                        <button class="text-red-600 hover:text-red-800" onclick="deleteModel(${model.ModelId})">Delete</button>
-                    </div>
-                </div>
-                <p class="text-sm text-gray-600">${model.Description || 'No description'}</p>
-            `;
-            modelList.appendChild(modelElement);
-        }
-
-        // Also update the model dropdowns in specifications tab
-        updateModelDropdowns(models);
-    } catch (error) {
-        console.error('Error loading models:', error);
-    }
-}
-
-// Update model dropdowns in specifications tab
-function updateModelDropdowns(models) {
-    const selects = document.querySelectorAll('#specifications-tab select');
-    selects.forEach(select => {
-        const currentValue = select.value;
-        select.innerHTML = '';
-        models.forEach(model => {
-            select.innerHTML += `<option value="${model.ModelId}">${model.ModelCode}</option>`;
-        });
-        if (currentValue) select.value = currentValue;
+    $('#scanFolderBtn').on('click', async () => {
+        console.log('👆 Scan Folder button clicked');
+        scanFolder();
     });
-}
 
-// Update the model form submission handler
-document.getElementById('model-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
+    $('#importSelectedFilesBtn').on('click', async () => {
+        console.log('👆 Import Selected Files button clicked');
+        importSelectedFiles();
+    });
 
-    try {
-        const modelCode = this.querySelector('[name="modelCode"]').value;
-        const modelName = this.querySelector('[name="modelName"]').value;
-        const description = this.querySelector('[name="description"]').value;
-        const imageFiles = document.getElementById('image-upload').files;
+    $('#resetModalBtn').on('click', () => {
+        console.log('👆 Reset Modal button clicked');
+        resetImportExcelModal();
+    });
 
-        if (!modelCode || !modelName) {
-            showToast('Model Code and Name are required', 'error');
+    // Delete Equipment button click handler
+    $('#delete-equip-btn').on('click', async function () {
+        const $select = $('#spec-form [name="equipName"]');
+        const selectedEquip = $select.find('option:selected');
+        const equipName = selectedEquip.text();
+        const equipId = selectedEquip.data('equip-id');
+
+        if (!equipId || !equipName || equipName === 'Select Equipment') {
+            showToast('Please select an equipment to delete', 'error');
             return;
         }
 
-        let modelId;
+        const result = await PopupUtil.showConfirm({
+            title: 'Xóa thiết bị',
+            message: `Xóa "${equipName}" cũng sẽ xóa nó khỏi các SPECs sử dụng nó.`,
+            type: 'danger',
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Hủy'
+        });
 
-        if (this.dataset.editing) {
-            // Update existing model
-            modelId = parseInt(this.dataset.editing);
-            // Convert images to base64
-            const images = await Promise.all(Array.from(imageFiles).map(async file => {
-                const base64 = await convertFileToBase64(file);
-                return {
-                    fileName: file.name,
-                    base64Image: base64,
-                    contentType: file.type
-                };
-            }));
-
-            await ModelService.updateModel({
-                ModelId: modelId,
-                modelCode: modelCode,
-                modelName: modelName,
-                description: description,
-                images: images
-            });
-            showToast('Model updated successfully');
-            delete this.dataset.editing;
-        } else {
-            // Create new model first
-            const newModel = await ModelService.createModel({
-                modelCode: modelCode,
-                modelName: modelName,
-                description: description,
-                createdAt: new Date().toISOString(),
-                totalProducts: 0
-            });
-
-            // If there are images, update the model with images
-            if (imageFiles.length > 0) {
-                const images = await Promise.all(Array.from(imageFiles).map(async file => {
-                    const base64 = await convertFileToBase64(file);
-                    return {
-                        fileName: file.name,
-                        base64Image: base64,
-                        contentType: file.type
-                    };
-                }));
-
-                // Update the newly created model with images
-                await ModelService.updateModel({
-                    ModelId: newModel.ModelId,
-                    modelCode: modelCode,
-                    modelName: modelName,
-                    description: description,
-                    createdAt: newModel.CreatedAt,
-                    totalProducts: 0,
-                    images: images
-                });
+        if (result) {
+            try {
+                await ModelSpecificationService.deleteEquipment(equipId);
+                showToast('Equipment deleted successfully');
+                await loadEquipmentOptions();
+            } catch (error) {
+                showToast(error.message, 'error');
             }
+        }
+    });
 
-            showToast('Model created successfully');
+    window.electronAPI.receive('excel-file-error', (error) => {
+        showToast(JSON.parse(error).error, 'error');
+    });
+
+    // Add to your setupEventListeners function
+    $('#select-all-files').on('change', function () {
+        const isChecked = $(this).prop('checked');
+        $('.file-checkbox').prop('checked', isChecked);
+    });
+
+    // Update select-all state when individual checkboxes change
+    $(document).on('change', '.file-checkbox', function () {
+        const allChecked = $('.file-checkbox:checked').length === $('.file-checkbox').length;
+        $('#select-all-files').prop('checked', allChecked);
+    });
+
+    // excel-file-success
+    window.electronAPI.receive('excel-file-success', (successMessage) => {
+        showToast(JSON.parse(successMessage).success, 'success');
+    });
+}
+
+async function importSelectedFiles() {
+    console.log('👆 Importing selected files');
+    const selectedFiles = $('.file-checkbox:checked').map(function () {
+        return {
+            FileName: $(this).data('file-name'),
+            PartNo: $(this).data('part-no')
+        };
+    }).get();
+    if (selectedFiles.length === 0) {
+        showToast('Please select at least one file to import', 'error');
+        return;
+    }
+    console.log('Selected files:', selectedFiles);
+    // send selected files to backend
+    window.electronAPI.receive('import-selected-files-result', (result) => {
+        console.log('👆 Received import-selected-files-result message:', result);
+        showToast(result, 'success');
+    });
+
+    // Create and show import loading modal
+    const modalHtml = `
+        <div id="importLoadingModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-[200]">
+            <div class="relative p-8 bg-white rounded-lg shadow-xl max-w-md mx-auto">
+                <div class="flex flex-col items-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                    <h3 class="text-lg font-semibold text-gray-900">Đang nhập dữ liệu</h3>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body if it doesn't exist
+    if (!$('#importLoadingModal').length) {
+        $('body').append(modalHtml);
+    }
+    
+    // Show modal
+    $('#importLoadingModal').removeClass('hidden');
+
+    window.electronAPI.receive('import-excel-done', (result) => {
+        // Hide and remove modal
+        $('#importLoadingModal').addClass('hidden').remove();
+        // Refresh page after success
+        // wait 3 sec before reload
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    });
+
+    window.electronAPI.send('import-selected-files', JSON.stringify(selectedFiles));
+}
+
+
+
+async function scanFolder() {
+    console.log('👆 Scanning folder');
+    $('#loadingCircle').removeClass('hidden');
+    $('#fileTable').addClass('hidden');
+    window.electronAPI.receive('excel-folder-scanned', (files) => {
+        const parsedFiles = JSON.parse(files);
+        console.log('👆 Received excel-folder-scanned message:', parsedFiles);
+        $('#fileTableBody').empty();
+        parsedFiles.forEach(file => {
+            if (file.FileName && file.PartNo) {
+                $('#fileTableBody').append(`
+                    <tr>
+                        <td class="p-2">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" 
+                                    class="file-checkbox w-5 h-5" 
+                                    data-part-no="${file.PartNo}"
+                                    data-file-name="${file.FileName}">
+                                <span class="ml-2 text-gray-700">${file.PartNo}</span>
+                            </label>
+                        </td>
+                        <td class="p-2">${file.FileName}</td>
+                        <!-- <td class="p-2">${file.PartNo}</td> -->
+                    </tr>
+                `);
+            }
+        });
+        $('#fileTable').removeClass('hidden');
+        $('#loadingCircle').addClass('hidden');
+        $('#importSelectedFilesBtn').removeClass('hidden');
+        $('#after-scan-text').removeClass('hidden');
+        $('#before-scan-text').addClass('hidden');
+    });
+    await window.electronAPI.send('scan-excel-folder', $('#folderPicker').val());
+}
+
+// Modal Functions
+function showModelForm(mode, modelId = null) {
+    console.log('🔵 Showing model form:', { mode, modelId });
+    const $modal = $('#model-modal');
+    const $form = $('#model-form');
+    const $title = $('#model-form-title');
+    const $preview = $('#image-preview');
+
+    $form[0].reset();
+
+    // Only clear preview if it's not edit mode
+    if (mode !== 'edit') {
+        $preview.empty();
+    }
+
+    // Remove any previous cloning note
+    $form.find('.text-gray-600.bg-gray-100').remove();
+
+    switch (mode) {
+        case 'edit':
+            $title.text('Edit Model');
+            $form.data('editing', modelId);
+            break;
+        case 'clone':
+            $title.text('Clone Model');
+            $form.removeData('editing');
+            break;
+        default:
+            $title.text('Create New Model');
+            $form.removeData('editing');
+            $form.removeData('cloning-from');
+    }
+
+    $modal.removeClass('hidden');
+}
+
+function showImportExcelModal() {
+    console.log('🔵 Showing import excel modal');
+    $('#import-excel-modal').removeClass('hidden');
+
+
+}
+
+function showSpecForm(mode, specId = null) {
+    const $modal = $('#spec-modal');
+    const $form = $('#spec-form');
+    const $title = $('#spec-form-title');
+
+    $form[0].reset();
+
+    // Set the hidden model ID to the currently selected model
+    $form.find('[name="modelId"]').val(selectedModelId);
+
+    // Load equipment options
+    loadEquipmentOptions();
+
+    if (mode === 'edit' && specId) {
+        $title.text('Edit Specification');
+        $form.data('editing', specId);
+    } else {
+        $title.text('Create New Specification');
+        $form.removeData('editing');
+    }
+
+    $modal.removeClass('hidden');
+}
+
+function closeImportExcelModal() {
+    $('#import-excel-modal').addClass('hidden');
+}
+
+function resetImportExcelModal() {
+    $('#after-scan-text').addClass('hidden');
+    $('#before-scan-text').removeClass('hidden');
+    $('#fileTable').addClass('hidden');
+    $('#loadingCircle').addClass('hidden');
+    $('#importSelectedFilesBtn').addClass('hidden');
+    $('#fileTableBody').empty();
+}
+
+function closeModelModal() {
+    $('#model-modal').addClass('hidden');
+    // Refresh specifications list if a model is selected
+    if (selectedModelId) {
+        loadSpecifications(selectedModelId);
+    }
+}
+
+function closeSpecModal() {
+    $('#spec-modal').addClass('hidden');
+    // Refresh specifications list if a model is selected
+    if (selectedModelId) {
+        loadSpecifications(selectedModelId);
+    }
+}
+
+// Model Functions
+async function loadModels() {
+    try {
+        const models = await ModelService.getAllModels();
+        const $modelsList = $('#models-list');
+        $modelsList.empty();
+
+        if (models.length === 0) {
+            $modelsList.html(`
+                <div class="text-center py-8 text-gray-500">
+                    <p class="font-medium">Không có model nào, hãy bấm (+) để thêm mới</p>
+                </div>
+            `);
+        } else {
+            models.forEach(model => {
+                const modelElement = createModelListItem(model);
+                $modelsList.append(modelElement);
+            });
         }
 
-        this.reset();
-        document.getElementById('image-preview').innerHTML = '';
+        updateModelDropdown(models);
+        updateSpecButtonState();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function createModelListItem(model) {
+    const div = $('<div class="list-item border rounded-lg p-4 cursor-pointer transition-all duration-200"></div>');
+
+    // Add initial selected state if this is the selected model
+    if (selectedModelId === model.ModelId) {
+        div.addClass('border-orange-500 border-2 translate-x-5 bg-orange-50');
+    }
+
+    // Debug log for images
+    console.log('🖼️ Model images data:', {
+        modelId: model.ModelId,
+        hasImages: !!model.Images?.length,
+        firstImage: model.Images?.[0],
+        imageDetails: model.Images?.[0] ? {
+            id: model.Images[0].ImageId,
+            fileName: model.Images[0].FileName,
+            hasBase64: !!model.Images[0].Base64Data,
+            contentType: model.Images[0].ContentType
+        } : null
+    });
+
+    // Create the content with image
+    const hasImage = model.Images && model.Images.length > 0;
+    let imageHtml;
+
+    if (hasImage) {
+        const firstImage = model.Images[0];
+        // Use the same base64 handling as loadModelForEdit
+        const base64Data = firstImage.Base64Data.startsWith('data:')
+            ? firstImage.Base64Data
+            : `data:${firstImage.ContentType};base64,${firstImage.Base64Data}`;
+
+        imageHtml = `
+            <div class="flex-shrink-0" style="margin-right: 14px; width: 100px; height: 100px;">
+                <img src="${base64Data}"
+                     class="w-full h-full object-cover rounded-lg bg-gray-100 shadow-md"
+                     alt="${firstImage.FileName}"
+                     onerror="console.error('Failed to load image:', '${firstImage.FileName}')"
+                >
+            </div>
+        `;
+    } else {
+        imageHtml = `
+            <div class="flex-shrink-0 flex items-center rounded-lg justify-center shadow-md" style="margin-right: 14px; width: 100px; height: 100px;">
+                <span class="text-gray-500 text-xs">No IMG</span>
+            </div>
+        `;
+    }
+
+    // Add click handler for selection
+    div.on('click', async (e) => {
+        console.log('🎯 Model clicked:', model.ModelId);
+
+        // Prevent triggering when clicking edit/delete buttons
+        if (e.target.closest('button')) {
+            console.log('⚡ Button clicked, ignoring selection');
+            return;
+        }
+
+        // Only handle selection if it's a different model
+        if (selectedModelId !== model.ModelId) {
+            console.log('✨ Selecting model:', model.ModelId);
+            // Remove selection from previously selected model
+            const previousSelected = $('.list-item.border-orange-500');
+            if (previousSelected.length > 0) {
+                console.log('🔄 Removing previous selection');
+                previousSelected.removeClass('border-orange-500 border-2 translate-x-5 bg-orange-50');
+            }
+
+            // Add selection to current model
+            div.addClass('border-orange-500 border-2 translate-x-5 bg-orange-50');
+            selectedModelId = model.ModelId;
+
+            // Load specifications for selected model and update button state
+            await loadSpecifications(model.ModelId);
+            updateSpecButtonState();
+        }
+    });
+
+    // Add hover effects
+    div.on('mouseenter', () => {
+        if (selectedModelId !== model.ModelId) {
+            div.addClass('translate-x-2 bg-gray-50');
+        }
+    });
+
+    div.on('mouseleave', () => {
+        if (selectedModelId !== model.ModelId) {
+            div.removeClass('translate-x-2 bg-gray-50');
+        }
+    });
+
+    div.html(`
+        <div class="flex items-start">
+            ${imageHtml}
+            <div class="flex-grow">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-bold text-black">${model.PartNo}</h4>
+                        <p class="text-sm text-black font-medium">${model.PartName}</p>
+                        <p class="text-sm text-black">Material: ${model.Material}</p>
+                        <p class="text-sm text-black">Production: ${new Date(model.ProductDate).toLocaleDateString()}</p>
+                    </div>
+                    <div class="flex space-x-2 ml-4">
+                        <button onclick="cloneModel(${model.ModelId})" 
+                                class="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-full transition-colors"
+                                title="Clone Model">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                        <button onclick="editModel(${model.ModelId})" 
+                                class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                                title="Edit Model">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                        <button onclick="deleteModelWithConfirm(${model.ModelId})" 
+                                class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-colors"
+                                title="Delete Model">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+    return div;
+}
+
+async function loadModelForEdit(modelId) {
+    try {
+        const model = await ModelService.getModelById(modelId);
+        const $form = $('#model-form');
+
+        $form.find('[name="partNo"]').val(model.PartNo);
+        $form.find('[name="partName"]').val(model.PartName);
+        $form.find('[name="material"]').val(model.Material);
+        $form.find('[name="productDate"]').val(model.ProductDate.split('T')[0]); // Format date for input
+
+        $form.data('editing', modelId);
+
+        // Load and display images
+        const $imagePreview = $('#image-preview');
+        $imagePreview.empty();
+
+        if (model.Images && model.Images.length > 0) {
+            console.log('📸 Loading images for model:', model.Images.length, 'images found');
+
+            model.Images.forEach(image => {
+                const $container = $('<div class="relative group"></div>');
+                $container.data('imageId', image.ImageId);
+
+                // Create image element
+                const $img = $('<img>')
+                    .addClass('w-full h-10 object-cover rounded-lg')
+                    .attr('alt', image.FileName);
+
+                // Set image source based on Base64Data
+                if (image.Base64Data) {
+                    console.log('📸 Loading base64 image:', image.FileName);
+                    // Check if Base64Data already contains the data URL prefix
+                    const base64Data = image.Base64Data.startsWith('data:')
+                        ? image.Base64Data // Use as-is if it already has prefix
+                        : `data:${image.ContentType};base64,${image.Base64Data}`; // Add prefix if needed
+                    $img.attr('src', base64Data);
+                }
+
+                // Create delete button
+                const $deleteButton = $(`
+                    <button type="button"
+                            class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                `);
+
+                // Add delete functionality
+                $deleteButton.on('click', async () => {
+                    try {
+                        await ModelService.deleteModelImage(image.ImageId);
+                        $container.remove();
+                        showToast('Image deleted successfully');
+                    } catch (error) {
+                        showToast(error.message, 'error');
+                    }
+                });
+
+                // Assemble the preview
+                $container.append($img, $deleteButton);
+                $imagePreview.append($container);
+            });
+        } else {
+            console.log('📸 No images found for model');
+        }
+    } catch (error) {
+        console.error('❌ Error loading model:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteModelWithConfirm(modelId) {
+    const result = await PopupUtil.showConfirm({
+        title: 'Xác nhận xóa model?',
+        message: 'Thao tác này sẽ không thể nào hoàn tác.',
+        type: 'danger',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy'
+    });
+
+    if (result) {
+        try {
+            await ModelService.deleteModel(modelId);
+            if (selectedModelId === modelId) {
+                selectedModelId = null;
+                $('#specs-list').empty();
+            }
+            showToast('Đã xóa model thành công');
+            loadModels();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+}
+
+// Specification Functions
+async function loadSpecifications(modelId) {
+    try {
+        const specs = await ModelSpecificationService.getSpecifications(modelId);
+        const $specsList = $('#specs-list');
+        $specsList.empty();
+
+        if (specs.length === 0) {
+            $specsList.html(`
+                <div class="text-center py-4 text-gray-500">
+                    <b>Không có thông số nào, hãy bấm (+) để thêm mới</b>
+                </div>
+            `);
+            return;
+        }
+
+        specs.forEach(spec => {
+            const specElement = createSpecListItem(spec);
+            $specsList.append(specElement);
+        });
+    } catch (error) {
+        console.error('Error loading specifications:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+function createSpecListItem(spec) {
+    const div = $('<div class="list-item border rounded-lg p-4 hover:bg-gray-50"></div>');
+    div.html(`
+        <div class="flex justify-between items-start">
+            <div>
+                <h4 class="font-bold text-black">${spec.SpecName}</h4>
+                <p class="text-sm text-black">
+                    Range: ${spec.MinValue} - ${spec.MaxValue} ${spec.Unit || ''}
+                </p>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="editSpec(${spec.SpecId})" 
+                        class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                        title="Edit Specification">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </button>
+                <button onclick="deleteSpecWithConfirm(${spec.SpecId})" 
+                        class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-colors"
+                        title="Delete Specification">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `);
+    return div;
+}
+
+async function deleteSpecWithConfirm(specId) {
+    const result = await PopupUtil.showConfirm({
+        title: 'Chắc chắn xóa thông số?',
+        message: 'Thao tác này sẽ không thể hoàn tác.',
+        type: 'danger',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy'
+    });
+
+    if (result) {
+        try {
+            await ModelSpecificationService.deleteSpecification(specId);
+            showToast('Đã xóa thông số thành công');
+            const modelId = $('#spec-form [name="modelId"]').val();
+            loadSpecifications(modelId);
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+}
+
+// Form Handling
+async function handleModelSubmit(e) {
+    e.preventDefault();
+
+    try {
+        const $form = $(e.target);
+        const formData = new FormData(e.target);
+        const modelData = {
+            partNo: formData.get('partNo'),
+            partName: formData.get('partName'),
+            material: formData.get('material'),
+            productDate: formData.get('productDate'),
+            wo: '',
+            machine: ''
+        };
+
+        if (!modelData.partNo || !modelData.partName || !modelData.material || !modelData.productDate) {
+            throw new Error('Vui lòng điền đầy đủ thông tin');
+        }
+
+        const editingId = $form.data('editing');
+        const cloningFromId = $form.data('cloning-from');
+        const imageFiles = $('#image-upload')[0].files;
+
+        let newModel;
+        if (editingId) {
+            modelData.modelId = parseInt(editingId);
+            await ModelService.updateModel(modelData);
+
+            // Handle image uploads for existing model
+            if (imageFiles && imageFiles.length > 0) {
+                console.log('📸 Processing', imageFiles.length, 'new images for update');
+                for (const file of imageFiles) {
+                    try {
+                        // Convert each image to JPEG and upload
+                        const imageData = await convertImageToJpeg(file);
+                        console.log('📸 Uploading converted image:', {
+                            fileName: imageData.FileName,
+                            contentType: imageData.ContentType,
+                            dataLength: imageData.Base64Data.length
+                        });
+                        await ModelService.uploadModelImage(modelData.modelId, imageData);
+                    } catch (imgError) {
+                        console.error('❌ Error processing image:', imgError);
+                        showToast(`Error processing image ${file.name}: ${imgError.message}`, 'error');
+                    }
+                }
+            }
+
+            showToast('Model đã được cập nhật thành công');
+        } else {
+            try {
+                // Create new model
+                newModel = await ModelService.createModel(modelData);
+
+                // Handle image uploads for new model
+                if (imageFiles && imageFiles.length > 0) {
+                    for (const file of imageFiles) {
+                        // Convert image to JPEG and upload
+                        const imageData = await convertImageToJpeg(file);
+                        await ModelService.uploadModelImage(newModel.ModelId, imageData);
+                    }
+                }
+
+                // If this was a clone operation, copy the specifications
+                if (cloningFromId) {
+                    console.log('🔄 Starting specification cloning process...');
+                    const sourceSpecs = await ModelSpecificationService.getSpecifications(cloningFromId);
+                    console.log(`📋 Found ${sourceSpecs.length} specifications to clone`);
+
+                    for (const spec of sourceSpecs) {
+                        await ModelSpecificationService.createSpecification({
+                            modelId: newModel.ModelId,
+                            specName: spec.SpecName,
+                            minValue: spec.MinValue,
+                            maxValue: spec.MaxValue,
+                            unit: spec.Unit
+                        });
+                    }
+
+                    closeModelModal();
+                    selectedModelId = newModel.ModelId;
+                    await loadModels();
+                    await loadSpecifications(newModel.ModelId);
+                    updateSpecButtonState();
+
+                    showToast('Model đã được nhân bản với tất cả thông số');
+                } else {
+                    closeModelModal();
+                    await loadModels();
+                    showToast('Model đã được tạo thành công');
+                }
+            } catch (createError) {
+                const errorMessage = createError.message || 'Unknown error occurred';
+                if (errorMessage.toLowerCase().includes('already exists')) {
+                    showToast('Model với Part No này đã tồn tại', 'error');
+                } else {
+                    showToast(errorMessage, 'error');
+                }
+                return;
+            }
+        }
+
+        closeModelModal();
         await loadModels();
     } catch (error) {
-        console.error('Error saving model:', error);
-        const errorMessage = error.error || error.message || 'Unknown error occurred';
+        const errorMessage = error.message || 'Đã xảy ra lỗi không xác định';
         showToast(errorMessage, 'error');
     }
-});
+}
 
-// Add helper function for base64 conversion
-function convertFileToBase64(file) {
+// Add this helper function for image conversion
+async function convertImageToJpeg(file) {
     return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith('image/')) {
+            reject(new Error('Invalid image file'));
+            return;
+        }
+
         const reader = new FileReader();
-        reader.onload = () => {
-            const base64String = reader.result.split(',')[1];
-            resolve(base64String);
+        reader.onload = function (e) {
+            const img = new Image();
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                // White background for PNGs
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+
+                const jpegData = canvas.toDataURL('image/jpeg', 0.9);
+
+                resolve({
+                    Base64Data: jpegData,
+                    FileName: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+                    ContentType: 'image/jpeg'
+                });
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
 }
 
-// Update the editSpecification function
-async function editSpecification(specId) {
-    try {
-        const spec = await ModelSpecificationService.getSpecificationById(specId);
-        const form = document.getElementById('spec-form');
-        const formTitle = document.getElementById('spec-form-title');
-
-        // Populate form
-        form.querySelector('[name="modelId"]').value = spec.ModelId;
-        form.querySelector('[name="specName"]').value = spec.SpecName;
-        form.querySelector('[name="minValue"]').value = spec.MinValue;
-        form.querySelector('[name="maxValue"]').value = spec.MaxValue;
-        form.querySelector('[name="unit"]').value = spec.Unit || '';
-
-        // Set editing state
-        form.dataset.editing = specId;
-
-        // Update title
-        formTitle.textContent = `Edit Specification: ${spec.SpecName}`;
-
-        // Update submit button
-        const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.textContent = 'Update Specification';
-
-        // Optional: Scroll form into view
-        form.scrollIntoView({ behavior: 'smooth' });
-
-        // Optional: Show toast
-        showToast('Editing specification: ' + spec.SpecName);
-
-    } catch (error) {
-        console.error('Error loading specification for edit:', error);
-        showToast('Error loading specification: ' + error.message, 'error');
-    }
-}
-
-// Update the initNewSpecification function
-function initNewSpecification() {
-    const form = document.getElementById('spec-form');
-    const formTitle = document.getElementById('spec-form-title');
-
-    // Clear the form
-    form.reset();
-
-    // Remove editing state if exists
-    delete form.dataset.editing;
-
-    // Update title
-    formTitle.textContent = 'Create New Specification';
-
-    // Reset button text
-    const submitButton = form.querySelector('button[type="submit"]');
-    submitButton.textContent = 'Save Specification';
-
-    // Keep the modelId if it exists in the dropdown
-    const modelSelect = document.querySelector('#specifications-tab select[name="modelId"]');
-    if (modelSelect.value) {
-        form.querySelector('[name="modelId"]').value = modelSelect.value;
-    }
-}
-
-// Update the spec form submission handler
-document.getElementById('spec-form').addEventListener('submit', async function (e) {
+async function handleSpecSubmit(e) {
     e.preventDefault();
 
     try {
+        const $form = $(e.target);
+        const formData = new FormData(e.target);
         const specData = {
-            modelId: parseInt(this.querySelector('[name="modelId"]').value),
-            specName: this.querySelector('[name="specName"]').value,
-            minValue: parseFloat(this.querySelector('[name="minValue"]').value),
-            maxValue: parseFloat(this.querySelector('[name="maxValue"]').value),
-            unit: this.querySelector('[name="unit"]').value,
-            displayOrder: 0
+            modelId: selectedModelId,
+            specName: formData.get('specName'),
+            equipName: formData.get('equipName'),
+            minValue: parseFloat(formData.get('minValue')),
+            maxValue: parseFloat(formData.get('maxValue')),
+            unit: formData.get('unit')
         };
 
-        if (this.dataset.editing) {
-            // Update existing specification
-            const specId = parseInt(this.dataset.editing);
-            await ModelSpecificationService.updateSpecification({
-                specId: specId,  // Changed from SpecId to specId to match the service
-                ...specData
-            });
-            showToast('Specification updated successfully');
-            delete this.dataset.editing;
+        if (specData.minValue >= specData.maxValue) {
+            throw new Error('Minimum value must be less than maximum value');
+        }
+
+        const editingId = $form.data('editing');
+        if (editingId) {
+            specData.specId = parseInt(editingId);
+            await ModelSpecificationService.updateSpecification(specData);
+            showToast('Thông số đã được cập nhật thành công');
         } else {
-            // Create new specification
             await ModelSpecificationService.createSpecification(specData);
-            showToast('Specification created successfully');
+            showToast('Thông số đã được tạo thành công');
         }
 
-        // Reset form and reload specifications
-        initNewSpecification();
-        await loadSpecifications(specData.modelId);
+        closeSpecModal();
+        loadSpecifications(specData.modelId);
     } catch (error) {
-        console.error('Error saving specification:', error);
-        showToast(error.message || 'Error saving specification', 'error');
+        showToast(error.message, 'error');
     }
-});
+}
 
-// Update the loadSpecifications function (around line 524)
-async function loadSpecifications(modelId) {
+// // Utility Functions
+// function showToast(message, type = 'success') {
+//     const $container = $('#toast-container');
+//     const $toast = $('<div class="flex items-center p-4 mb-4 rounded-lg shadow-lg transition-all duration-500 transform translate-x-full"></div>');
+
+//     const baseClasses = 'flex items-center p-4 mb-4 rounded-lg shadow-lg transition-all duration-500 transform translate-x-full';
+//     const typeClasses = type === 'success'
+//         ? 'text-green-800 bg-green-50'
+//         : 'text-red-800 bg-red-50';
+
+//     $toast.addClass(`${baseClasses} ${typeClasses}`);
+//     $toast.html(`
+//         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+//             ${type === 'success' 
+//                 ? '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
+//                 : '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>'}
+//         </svg>
+//         <span class="text-sm font-semibold">${message}</span>
+//     `);
+
+//     $container.append($toast);
+//     setTimeout(() => $toast.removeClass('translate-x-full'), 10);
+//     setTimeout(() => {
+//         $toast.addClass('translate-x-full');
+//         setTimeout(() => $container.find('.toast').remove(), 500);
+//     }, 3000);
+// }
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function filterModels(searchTerm) {
+    console.log('🔍 Filtering models with term:', searchTerm);
+
+    // Remove any existing "no results" message first
+    $('#models-list .no-results').remove();
+
+    if (!searchTerm || searchTerm.trim() === '') {
+        console.log('📝 Empty search term, showing all models');
+        $('#models-list .list-item').show();
+        return;
+    }
+
+    searchTerm = searchTerm.toLowerCase().trim();
+
+    $('#models-list .list-item').each(function () {
+        const $item = $(this);
+
+        // Get all searchable text from the model item
+        const partNo = $item.find('h4').text().toLowerCase();
+        const partName = $item.find('p').eq(0).text().toLowerCase();
+        const material = $item.find('p').eq(1).text().toLowerCase();
+        const productDate = $item.find('p').eq(2).text().toLowerCase();
+
+        // Combine all searchable fields
+        const searchableText = `${partNo} ${partName} ${material} ${productDate}`;
+
+        // Check if any field contains the search term
+        const isVisible = searchableText.includes(searchTerm);
+        console.log(`📄 Item ${partNo}: ${isVisible ? 'visible' : 'hidden'}`);
+
+        $item.toggle(isVisible);
+    });
+
+    // Show "no results" message if no items are visible
+    const visibleItems = $('#models-list .list-item:visible').length;
+    console.log(`👀 Visible items: ${visibleItems}`);
+
+    if (visibleItems === 0 && searchTerm.trim() !== '') {
+        $('#models-list').append(`
+            <div class="no-results text-center py-4 text-gray-500">
+                <p class="font-medium">Không tìm thấy model nào với từ khóa "${searchTerm}"</p>
+            </div>
+        `);
+    }
+}
+
+function filterSpecs(searchTerm) {
+    console.log('🔍 Filtering specifications with term:', searchTerm);
+
+    // Remove any existing "no results" message first
+    $('#specs-list .no-results').remove();
+
+    if (!searchTerm || searchTerm.trim() === '') {
+        console.log('📝 Empty search term, showing all specs');
+        $('#specs-list .list-item').show();
+        return;
+    }
+
+    searchTerm = searchTerm.toLowerCase().trim();
+
+    $('#specs-list .list-item').each(function () {
+        const $item = $(this);
+
+        // Get all searchable text from the spec item
+        const specName = $item.find('h4').text().toLowerCase();
+        const rangeText = $item.find('p').text().toLowerCase();
+
+        // Combine all searchable fields
+        const searchableText = `${specName} ${rangeText}`;
+
+        // Check if any field contains the search term
+        const isVisible = searchableText.includes(searchTerm);
+        console.log(`📄 Spec ${specName}: ${isVisible ? 'visible' : 'hidden'}`);
+
+        $item.toggle(isVisible);
+    });
+
+    // Show "no results" message if no items are visible
+    const visibleItems = $('#specs-list .list-item:visible').length;
+    console.log(`👀 Visible specs: ${visibleItems}`);
+
+    if (visibleItems === 0 && searchTerm.trim() !== '') {
+        $('#specs-list').append(`
+            <div class="no-results text-center py-4 text-gray-500">
+                <p class="font-medium">Không tìm thấy thông số nào với từ khóa "${searchTerm}"</p>
+            </div>
+        `);
+    }
+}
+
+async function updateModelDropdown() {
     try {
-        const specs = await ModelSpecificationService.getSpecifications(modelId);
-        const specList = document.querySelector('#specifications-tab .overflow-y-auto .space-y-4');
-        specList.innerHTML = '';
+        const models = await ModelService.getAllModels();
+        const $select = $('#spec-form [name="modelId"]');
+        $select.empty();
+        $select.append('<option value="">Select a model</option>');
 
-        specs.forEach(spec => {
-            const specElement = document.createElement('div'); // Add this line
-            specElement.className = 'border rounded-lg p-4 hover:bg-gray-50'; // Add this line
-
-            specElement.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="font-semibold">${spec.SpecName}</h4>
-                        <p class="text-sm text-gray-600">Min: ${spec.MinValue} | Max: ${spec.MaxValue} ${spec.Unit || ''}</p>
-                    </div>
-                    <div class="space-x-2">
-                        <button onclick="editSpecification(${spec.SpecId})" 
-                                class="text-blue-600 hover:text-blue-800">
-                            Edit
-                        </button>
-                        <button onclick="deleteSpecification(${spec.SpecId})" 
-                                class="text-red-600 hover:text-red-800">
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            `;
-            specList.appendChild(specElement);
+        models.forEach(model => {
+            const $option = $('<option></option>');
+            $option.val(model.ModelId);
+            $option.text(`${model.ModelCode} - ${model.ModelName}`);
+            $select.append($option);
         });
     } catch (error) {
-        console.error('Error loading specifications:', error);
-        showToast('Error loading specifications: ' + error.message, 'error');
+        showToast(error.message, 'error');
     }
 }
 
-async function editModel(modelId) {
-    try {
-        console.log('1. Starting editModel with modelId:', modelId);
-
-        const model = await ModelService.getModelById(modelId);
-        console.log('2. Retrieved model data:', model);
-
-        const form = document.getElementById('model-form');
-        const formTitle = document.getElementById('form-title');
-        const imagePreview = document.getElementById('image-preview');
-        const imageUpload = document.getElementById('image-upload');
-
-        console.log('3. Found DOM elements:', {
-            form: !!form,
-            formTitle: !!formTitle,
-            imagePreview: !!imagePreview,
-            imageUpload: !!imageUpload
-        });
-
-        // Populate basic form fields
-        form.querySelector('[name="modelCode"]').value = model.ModelCode;
-        form.querySelector('[name="modelName"]').value = model.ModelName;
-        form.querySelector('[name="description"]').value = model.Description || '';
-
-        // Clear existing preview
-        imagePreview.innerHTML = '';
-        console.log('4. Checking for images:', model.Images);
-
-        // Create a DataTransfer object for the file input
-        const dataTransfer = new DataTransfer();
-        console.log('5. Created DataTransfer object');
-
-        // Load existing images
-        if (model.Images && model.Images.length > 0) {
-            console.log('6. Processing images:', model.Images);
-
-            for (const image of model.Images) {
-                console.log('7. Processing image:', image);
-                try {
-                    // Create preview container
-                    const container = document.createElement('div');
-                    container.className = 'relative group';
-                    container.dataset.imageId = image.ImageId;
-
-                    // Use window.location.origin to ensure correct path
-                    const imagePath = `${window.location.origin}${image.FilePath}`;
-                    console.log('8. Full image path:', imagePath);
-
-                    container.innerHTML = `
-                            <img src="${imagePath}" 
-                                 alt="${image.FileName}"
-                                 class="w-full h-32 object-cover rounded-lg"
-                                 onerror="console.error('Failed to load image:', '${imagePath}')" />
-                            <button onclick="deleteModelImage(${image.ImageId})" 
-                                    class="absolute top-2 right-2 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100">
-                                Delete
-                            </button>
-                        `;
-
-                    imagePreview.appendChild(container);
-                } catch (error) {
-                    console.error('Error processing image:', error);
-                }
-            }
-        } else {
-            console.log('No images found. Model.Images:', model.Images);
-        }
-
-        // Set editing state
-        form.dataset.editing = modelId;
-        formTitle.textContent = `Edit Model: ${model.ModelCode}`;
-        console.log('15. Completed editModel setup');
-
-    } catch (error) {
-        console.error('Error in editModel:', error);
-        showToast('Error loading model: ' + error.message, 'error');
-    }
-}
-
-// Add function to delete model image
-async function deleteModelImage(imageId) {
-    try {
-        if (!confirm('Are you sure you want to delete this image?')) return;
-        await ModelService.deleteModelImage(imageId);
-        showToast('Image deleted successfully');
-
-        // Refresh the current model being edited
-        const form = document.getElementById('model-form');
-        if (form.dataset.editing) {
-            await editModel(parseInt(form.dataset.editing));
-        }
-    } catch (error) {
-        console.error('Error deleting image:', error);
-        showToast('Error deleting image: ' + error.message, 'error');
-    }
-}
-
-// Function to delete model
-async function deleteModel(modelId) {
-    try {
-        if (!confirm('Are you sure you want to delete this model?')) return;
-
-        await ModelService.deleteModel(modelId);
-        await loadModels();
-    } catch (error) {
-        console.error('Error deleting model:', error);
-        alert('Error deleting model: ' + error.message);
-    }
-}
-
-// Function to delete specification
-async function deleteSpecification(specId) {
-    try {
-        if (!confirm('Are you sure you want to delete this specification?')) return;
-
-        await ModelSpecificationService.deleteSpecification(specId);
-        // Refresh the specifications list
-        const modelId = document.querySelector('#specifications-tab [name="modelId"]').value;
-        if (modelId) {
-            await loadSpecifications(modelId);
-        }
-    } catch (error) {
-        console.error('Error deleting specification:', error);
-        alert('Error deleting specification: ' + error.message);
-    }
-}
-
-// Add after deleteSpecification()
-
-// Function to switch to specs tab and select model
-function switchToSpecs(modelId) {
-    // Switch to specifications tab
-    const specsTab = document.querySelector('[data-tab="specifications"]');
-    specsTab.click();
-
-    // Select the model in the dropdown and load its specifications
-    const modelSelect = document.querySelector('#specifications-tab [name="modelId"]');
-    modelSelect.value = modelId;
-    loadSpecifications(modelId);
-
-    // Also update the hidden input in the form
-    document.querySelector('#spec-form [name="modelId"]').value = modelId;
-}
-
-// Initialize when modal opens
-document.addEventListener('DOMContentLoaded', loadModels);
-
-console.log("test");
-
-// Add this after your existing functions
-async function handleImageUpload(event) {
-    console.log('🖼️ [Upload] Starting image upload process');
+// Image handling
+function handleImageUpload(event) {
     const files = event.target.files;
-    console.log(`🖼️ [Upload] Number of files selected: ${files.length}`);
+    const $preview = $('#image-preview');
 
-    try {
-        const modelId = parseInt(document.getElementById('model-form').dataset.editing);
-        if (!modelId) {
-            throw new Error('No model ID found. Please save the model first.');
+    Array.from(files).forEach(file => {
+        // Check if file is an image
+        if (!file.type.startsWith('image/')) {
+            showToast('Please select only image files', 'error');
+            return;
         }
-        console.log(`🖼️ [Upload] Uploading for ModelId: ${modelId}`);
 
-        for (const file of files) {
-            console.log(`🖼️ [Upload] Processing file: ${file.name} (${file.type})`);
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            // Create an image element to draw to canvas
+            const img = new Image();
+            img.onload = function () {
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
 
-            // Read file as base64
-            const base64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(file);
-            });
-            console.log('🖼️ [Upload] File converted to base64');
+                // Set canvas size to match image
+                canvas.width = img.width;
+                canvas.height = img.height;
 
-            const imageData = {
-                modelId: modelId,
-                base64Image: base64,
-                fileName: file.name,
-                contentType: file.type,
-                displayOrder: 0 // You might want to calculate this based on existing images
+                // Draw image to canvas with white background (for PNGs)
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+
+                // Convert to JPEG format
+                const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                console.log('📸 JPEG Data URL:', jpegDataUrl);
+                // Create preview container
+                const $container = $('<div class="relative group"></div>');
+                $container.html(`
+                    <img src="${jpegDataUrl}" class="w-full h-10 object-cover rounded-lg" />
+                    <button type="button" 
+                            class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                `);
+
+                // Store the converted image data
+                $container.data('imageData', jpegDataUrl);
+
+                $container.find('button').on('click', () => $container.remove());
+                $preview.append($container);
             };
-            console.log('🖼️ [Upload] Created image data object:', {
-                ...imageData,
-                base64Image: base64.substring(0, 50) + '...' // Truncate for logging
-            });
-
-            // Create the image
-            await createModelImage(imageData);
-            console.log('🖼️ [Upload] Image uploaded successfully');
-
-            // Debug check images after upload
-            await ModelService.debugCheckImages();
-
-            // Refresh the model display
-            await editModel(modelId);
-            console.log('🖼️ [Upload] Model display refreshed');
-        }
-
-        showToast('Images uploaded successfully', 'success');
-    } catch (error) {
-        console.error('🖼️ [Upload] Error:', error);
-        showToast('Hãy tạo model trước rồi cập nhật ảnh', 'error');
-    }
-}
-
-// Helper function to create model image
-async function createModelImage(imageData) {
-    return new Promise((resolve, reject) => {
-        try {
-            console.log('🖼️ [Create] Sending image creation request');
-            window.electronAPI.send('image-create', JSON.stringify(imageData));
-
-            window.electronAPI.receive('image-created', (result) => {
-                console.log('🖼️ [Create] Image created successfully');
-                resolve(JSON.parse(result));
-            });
-
-            window.electronAPI.receive('image-error', (error) => {
-                console.error('🖼️ [Create] Error creating image:', error);
-                reject(JSON.parse(error));
-            });
-        } catch (error) {
-            console.error('🖼️ [Create] Critical error:', error);
-            reject(error);
-        }
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     });
 }
 
-// Add a debug function to check images
-async function debugCheckImagesForModel(modelId) {
+function createImagePreviewElement(image) {
+    const $container = $('<div class="relative group"></div>');
+    $container.data('imageId', image.ImageId);
+
+    const $img = $('<img>')
+        .addClass('w-full h-10 object-cover rounded-lg')
+        .attr('alt', image.FileName);
+
+    // Set the image source using base64 data
+    if (image.Base64Data) {
+        console.log('📸 Loading base64 image:', image.FileName);
+        try {
+            // Base64Data already contains the full data URL, use it directly
+            console.log('📸 Image data URL length:', image.Base64Data.length);
+            console.log('📸 Image data URL:', image.Base64Data);
+            $img.attr('src', image.Base64Data);
+        } catch (error) {
+            console.error('❌ Error setting image source:', error);
+            // Set a placeholder or error image
+            $img.attr('src', '../images/placeholder.png');
+        }
+    } else {
+        console.warn('⚠️ No base64 data found for image:', image.FileName);
+        // Set a placeholder image
+        $img.attr('src', '../images/placeholder.png');
+    }
+
+    const $deleteButton = $(`
+        <button type="button"
+                class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    `);
+
+    $deleteButton.on('click', async () => {
+        try {
+            await ModelService.deleteModelImage(image.ImageId);
+            $container.remove();
+            showToast('Image deleted successfully');
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    $container.append($img, $deleteButton);
+    return $container;
+}
+
+// Add the missing editSpec function
+async function editSpec(specId) {
     try {
-        console.log('🔍 [Debug] Checking images for model:', modelId);
+        const spec = await ModelSpecificationService.getSpecificationById(specId);
+        showSpecForm('edit', specId);
 
-        // Check database state
-        const dbState = await ModelService.debugCheckImages();
-        console.log('🔍 [Debug] Database state:', dbState);
+        // Wait for equipment options to load
+        await loadEquipmentOptions();
 
-        // Get model details
-        const model = await ModelService.getModelById(modelId);
-        console.log('🔍 [Debug] Model details:', model);
+        const $form = $('#spec-form');
+        $form.find('[name="modelId"]').val(spec.ModelId);
+        $form.find('[name="specName"]').val(spec.SpecName);
 
-        // Check image files
-        if (model.Images && model.Images.length > 0) {
-            console.log('🔍 [Debug] Checking image files...');
-            for (const image of model.Images) {
-                try {
-                    const response = await fetch(image.FilePath);
-                    console.log(`🔍 [Debug] Image ${image.ImageId} (${image.FilePath}):`, {
-                        exists: response.ok,
-                        status: response.status,
-                        type: response.headers.get('content-type')
-                    });
-                } catch (error) {
-                    console.error(`🔍 [Debug] Error checking image ${image.ImageId}:`, error);
-                }
+        // Set equipment selection
+        const $equipSelect = $form.find('[name="equipName"]');
+        if (spec.EquipName) {
+            console.log('🔧 Setting equipment:', spec.EquipName);
+
+            // If the equipment doesn't exist in the list, add it
+            if (!$equipSelect.find(`option[value="${spec.EquipName}"]`).length) {
+                console.log('🔧 Adding missing equipment option');
+                $equipSelect.append(new Option(spec.EquipName, spec.EquipName));
             }
-        } else {
-            console.log('🔍 [Debug] No images found for this model');
+
+            // Set the value
+            $equipSelect.val(spec.EquipName).trigger('change');
+            console.log('🔧 Equipment set to:', $equipSelect.val());
+        }
+
+        $form.find('[name="minValue"]').val(spec.MinValue);
+        $form.find('[name="maxValue"]').val(spec.MaxValue);
+        $form.find('[name="unit"]').val(spec.Unit || '');
+
+        $form.data('editing', specId);
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Add the missing editModel function
+async function editModel(modelId) {
+    try {
+        showModelForm('edit', modelId);
+        await loadModelForEdit(modelId);
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Update ESC key handler
+$(document).on('keydown', function (e) {
+    if (e.key === 'Escape') {
+        $('#model-modal, #spec-modal').addClass('hidden');
+        // Refresh specifications list if a model is selected
+        if (selectedModelId) {
+            loadSpecifications(selectedModelId);
+        }
+    }
+});
+
+// Add this function to handle spec button state
+function updateSpecButtonState() {
+    const $specButton = $('#new-spec-btn');
+    const $specsList = $('#specs-list');
+
+    if (!selectedModelId) {
+        $specButton.prop('disabled', true)
+            .addClass('opacity-50 cursor-not-allowed')
+            .attr('title', 'Vui lòng nhấn chọn một model bất kì trước');
+
+        $specsList.html(`
+            <div class="text-center py-8 text-gray-500">
+                <svg class="w-6 h-6 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                <p class="font-medium">Vui lòng nhấn chọn một model bất kì</p>
+            </div>
+        `);
+    } else {
+        $specButton.prop('disabled', false)
+            .removeClass('opacity-50 cursor-not-allowed')
+            .attr('title', 'Add new specification');
+    }
+}
+
+// Update the cloneModel function
+async function cloneModel(modelId) {
+    try {
+        const result = await PopupUtil.showConfirm({
+            title: 'Nhân bản Model',
+            message: 'Hãy sửa thông tin của model này trước khi nhân bản.',
+            type: 'info',
+            confirmButtonText: 'Tiếp tục',
+            cancelButtonText: 'Hủy'
+        });
+
+        if (result) {
+            // Get the source model data
+            const sourceModel = await ModelService.getModelById(modelId);
+            console.log('📋 Source model data:', sourceModel); // Debug log
+
+            // Show the model form in clone mode
+            showModelForm('clone');
+
+            // Pre-fill the form with the model data
+            const $form = $('#model-form');
+            $form.find('[name="partNo"]').val(sourceModel.PartNo + ' (Copy)');
+            $form.find('[name="partName"]').val(sourceModel.PartName + ' (Copy)');
+            $form.find('[name="material"]').val(sourceModel.Material);
+            $form.find('[name="productDate"]').val(new Date().toISOString().split('T')[0]); // Today's date
+
+            // Store the source model ID for cloning specs later
+            $form.data('cloning-from', modelId);
+
+            // Update modal title to indicate cloning
+            $('#model-form-title').text('Nhân bản Model: ' + sourceModel.PartNo);
+
+            // Copy images if any
+            const $imagePreview = $('#image-preview');
+            $imagePreview.empty();
+
+            if (sourceModel.Images && sourceModel.Images.length > 0) {
+                sourceModel.Images.forEach(image => {
+                    const imgContainer = createImagePreviewElement(image);
+                    $imagePreview.append(imgContainer);
+                });
+            }
+
+            const specsCount = sourceModel.Specifications?.length || 0;
+            console.log('📊 Number of specifications to clone:', specsCount); // Debug log
+
+            // Add a note about specifications
+            $form.find('button[type="submit"]').before(`
+                <div class="text-sm text-gray-600 bg-gray-100 p-3 rounded-lg">
+                    <p class="font-medium">Lưu ý:</p>
+                    <p>Tất cả các thông số của model gốc sẽ được sao chép tự động sau khi lưu.</p>
+                    <p class="mt-1 text-xs">Tổng số thông số sẽ đưc sao chép: ${specsCount}</p>
+                </div>
+            `);
         }
     } catch (error) {
-        console.error('🔍 [Debug] Error during debug check:', error);
+        console.error('❌ Error in cloneModel:', error);
+        showToast(error.message, 'error');
     }
+}
+
+// Add this function to load equipment options
+async function loadEquipmentOptions() {
+    try {
+        const equipments = await ModelSpecificationService.getAllEquipments();
+        const $select = $('#spec-form [name="equipName"]');
+        $select.empty();
+        $select.append('<option value="">Select Equipment</option>');
+
+        equipments.forEach(equip => {
+            const $option = $('<option></option>')
+                .val(equip.EquipName)
+                .text(equip.EquipName)
+                .data('equip-id', equip.EquipId);
+            $select.append($option);
+        });
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function handleEquipSubmit(e) {
+    e.preventDefault();
+
+    try {
+        const $form = $(e.target);
+        const equipName = $form.find('[name="equipName"]').val().trim();
+
+        if (!equipName) {
+            throw new Error('Equipment name is required');
+        }
+
+        const equipData = {
+            EquipName: equipName  // Change to uppercase 'E' to match C# model
+        };
+
+        console.log('📤 Sending equipment data:', equipData);
+
+        await ModelSpecificationService.createEquipment(equipData);
+        showToast('Equipment added successfully');
+        closeEquipModal();
+        await loadEquipmentOptions();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteEquipment(equipId) {
+    try {
+        const $select = $('#spec-form [name="equipName"]');
+        const selectedEquip = $select.find('option:selected');
+        const equipName = selectedEquip.text();
+
+        const result = await PopupUtil.showConfirm({
+            title: 'Xóa thiết bị',
+            message: `Xóa "${equipName}"? Điều này sẽ xóa thiết bị khỏi tất cả các thông số sử dụng nó.`,
+            type: 'danger',
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Hủy'
+        });
+
+        if (result) {
+            const deleteResult = await ModelSpecificationService.deleteEquipment(equipId);
+            showToast('Equipment deleted successfully');
+
+            // Refresh equipment dropdown
+            await loadEquipmentOptions();
+
+            // If we have a selected model, refresh its specifications
+            if (selectedModelId) {
+                await loadSpecifications(selectedModelId);
+            }
+        }
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Add these functions for equipment handling
+function showEquipModal() {
+    const $modal = $('#equip-modal');
+    const $form = $('#equip-form');
+    $form[0].reset();
+    $modal.removeClass('hidden');
+}
+
+function closeEquipModal() {
+    $('#equip-modal').addClass('hidden');
 }

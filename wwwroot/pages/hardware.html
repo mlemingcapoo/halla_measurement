@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Transformation Task</title>
+    <link href="../css/output.css" rel="stylesheet">
+    <script src="../js/model-service.js"></script>
+    <script src="../js/model-spec-service.js"></script>
+    <script src="../js/product-service.js"></script>
+    <script src="../js/product-measurement-service.js"></script>
+</head>
+<body>
+    
+<body class="bg-white min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg px-6 py-3 flex items-center justify-between">
+        <a href="../index.html" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span class="ml-2 font-medium">Back</span>
+        </a>
+        <div class="flex items-center space-x-3">
+            <img src="../images/logo.png" alt="Halla Electronics Vina" class="h-10">
+            <span class="text-gray-900 font-semibold text-lg">HALLA ELECTRONICS VINA</span>
+        </div>
+        <h1 class="text-2xl font-bold text-orange-600">Hardware Settings</h1>
+        <div class="text-gray-800 font-mono">
+            <span id="clock" class="text-lg"></span>
+            <div id="date" class="text-sm"></div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 space-y-6">
+        <!-- display current connected com port here -->
+        <div class="text-gray-800 font-mono font-bold text-lg">Cổng COM đã chọn: <span id="current-serial-port-name">Loading...</span></div>
+        
+        <!-- and a select option to choose the serial port here -->
+        <select id="select-serial-port" class="w-full p-2 border text-black border-gray-300 rounded-lg">
+            <option value="">Select a serial port</option>
+        </select>
+        <button id="btn-get-com-port-info" class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+            Xem chi tiết cổng COM
+        </button> 
+        <button id="btn-check-receiver" class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+            Kiểm tra kết nối tới bộ nhận tín hiệu
+        </button> 
+
+        <!-- <button id="btn-close-port" class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+            Ngắt kết nối cổng COM
+        </button> -->
+        
+
+        <!-- <input type="text" id="input-serial-port" class="w-full p-2 border border-gray-300 rounded-lg">
+        <button id="btn-set-serial-port" class="px-6 py-2 font-semibold bg-white shadow-lg text-gray-800 rounded-lg hover:bg-gray-300">
+            set serial port
+        </button> -->
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="../js/PopupUtil.js"></script>
+    <script src="./js/hardware.js"></script>
+</body>
+</html>

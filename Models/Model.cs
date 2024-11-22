@@ -8,15 +8,18 @@ namespace Models
     {
         [Key]
         public int ModelId { get; set; }
-        public string ModelCode { get; set; } = string.Empty;
-        public string ModelName { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public int TotalProducts { get; set; }
-
-        // Navigation properties
+        [Required]
+        public string PartNo { get; set; } = string.Empty;
+        [Required]
+        public string PartName { get; set; } = string.Empty;
+        public string Material { get; set; } = string.Empty;
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime? ProductDate { get; set; }
+        public string? WO { get; set; }
+        public string? Machine { get; set; }
         public virtual ICollection<ModelSpecification> Specifications { get; set; } = new List<ModelSpecification>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
-        public virtual ICollection<Image> Images { get; set; } = new List<Image>();
+        public virtual ICollection<ModelImage> Images { get; set; } = new List<ModelImage>();
     }
 } 

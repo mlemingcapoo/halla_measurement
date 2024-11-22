@@ -1,21 +1,37 @@
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Microsoft.EntityFrameworkCore;
+using Services;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Models;
 
 // Add mutex at the start
-using var mutex = new Mutex(true, "HallaMeasurementAppSingleInstance", out bool createdNew);
+// using var mutex = new Mutex(true, "HallaMeasurementAppSingleInstance", out bool createdNew);
 
-if (!createdNew)
-{
-    if (HybridSupport.IsElectronActive)
-    {
-        await ShowDatabaseErrorNotification("Ứng dụng đang chạy ở một cửa sổ khác.");
-        Electron.App.Quit();
-    }
-    return;
-}
+// if (!createdNew)
+// {
+//     if (HybridSupport.IsElectronActive)
+//     {
+//         try
+//         {
+//             await ShowDatabaseErrorNotification("Ứng dụng đang chạy ở một cửa sổ khác.");
+//             Electron.App.Exit(0); // Use Exit instead of Quit
+//         }
+//         catch
+//         {
+//             Environment.Exit(0); // Force exit if Electron call fails
+//         }
+//     }
+//     return;
+// }
+
+// // Add this to ensure cleanup on application exit
+// AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+// {
+//     mutex?.ReleaseMutex();
+//     mutex?.Dispose();
+// };
 
 
 
@@ -67,11 +83,22 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.ListenLocalhost(port);
 });
 
-// Update the database configuration
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString),
-    ServiceLifetime.Scoped);
+// Replace the SQLite configuration with SQL Server configuration
+var databaseConfig = builder.Configuration.GetSection("DatabaseConfig").Get<DatabaseConfig>();
+if (databaseConfig == null)
+{
+    throw new InvalidOperationException("Database configuration is missing");
+}
+
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseSqlServer(databaseConfig.BuildConnectionString(), sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorNumbersToAdd: null);
+        sqlOptions.CommandTimeout(databaseConfig.CommandTimeout);
+    }));
 
 // Register MVC services
 builder.Services.AddControllersWithViews();
@@ -81,6 +108,21 @@ builder.Services.AddElectron();
 
 // Add ElectronController service registration
 builder.Services.AddScoped<ElectronController>();
+
+// place IPC event services here
+builder.Services.AddScoped<IIPCService, AppIPCService>();
+builder.Services.AddScoped<IIPCService, HardwareService>();
+builder.Services.AddScoped<ComPortService>();
+builder.Services.AddScoped<IIPCService, ModelIPCService>();
+builder.Services.AddScoped<ExcelExportService>();
+builder.Services.AddScoped<ExcelFileService>();
+builder.Services.AddScoped<IIPCService, ExcelIPCService>();
+builder.Services.AddScoped<ProductIPCService>();
+builder.Services.AddScoped<IIPCService, ProductIPCService>();
+builder.Services.AddScoped<IIPCService, SpecificationIPCService>();
+builder.Services.AddScoped<IIPCService, MeasurementIPCService>();
+builder.Services.AddScoped<IIPCService, EquipIPCService>();
+builder.Services.AddScoped<IIPCService, ImageIPCService>();
 
 // Add health checks
 builder.Services.AddHealthChecks();
@@ -112,12 +154,14 @@ using (var scope = app.Services.CreateScope())
         // display notification to the user
         await ShowDatabaseErrorNotification(ex.Message);
         // Attempt to ensure database is created even if migrations fail
-        try {
+        try
+        {
             Console.WriteLine("Attempting to ensure database is created...");
             dbContext.Database.EnsureCreated();
             Console.WriteLine("Database creation completed.");
         }
-        catch (Exception createEx) {
+        catch (Exception createEx)
+        {
             Console.WriteLine($"Failed to create database: {createEx.Message}");
             await ShowDatabaseErrorNotification(createEx.Message);
             throw; // Re-throw if we can't even create the database
@@ -157,8 +201,24 @@ if (HybridSupport.IsElectronActive)
 {
     app.Lifetime.ApplicationStarted.Register(async () =>
     {
+        // Create loading window
+        // var loadingWindow = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
+        // {
+        //     Width = 400,
+        //     Height = 400,
+        //     Show = false,
+        //     Frame = false,
+        //     Transparent = true,
+        //     Icon = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "favicon.ico"),
+        //     WebPreferences = new WebPreferences
+        //     {
+        //         NodeIntegration = false,
+        //         ContextIsolation = true
+        //     },
+        // });
         // Check for single instance using Electron's mechanism
-        var isSingleInstance = await Electron.App.RequestSingleInstanceLockAsync((args, workingDirectory) => {
+        var isSingleInstance = await Electron.App.RequestSingleInstanceLockAsync((args, workingDirectory) =>
+        {
             // This callback will be called when subsequent instances are launched
         });
         if (!isSingleInstance)
@@ -182,12 +242,21 @@ if (HybridSupport.IsElectronActive)
             }
         });
 
+        // Load the loading.html file
+        // var loadingUrl = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "loading.html");
+        // loadingWindow.LoadURL(loadingUrl);
+        // loadingWindow.Show();
+
         Console.WriteLine("Electron application starting...");
+
+        // Create main window
         var window = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
         {
             Width = 1280,
             Height = 720,
             Show = false,
+            // Fullscreen = true,
+            // Frame = false,
             Icon = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "favicon.ico"),
             WebPreferences = new WebPreferences
             {
@@ -198,16 +267,21 @@ if (HybridSupport.IsElectronActive)
             // Add these performance-related options
             AutoHideMenuBar = true,
             EnableLargerThanScreen = false,
-            HasShadow = false
+            HasShadow = true,
+            BackgroundColor = "#FFFFFF",  // Add this for white background
         });
 
+        // loadingWindow.Close();
         // Show the window once it's ready to prevent flickering
         window.OnReadyToShow += () => window.Show();
+        // Add these event handlers
+        window.OnClose += async () =>
+        {
+            await CleanUpAsync();
+        };
+        
 
-        // Close the application when the window is closed
-        window.OnClosed += () => Electron.App.Quit();
-
-        try 
+        try
         {
             Console.WriteLine("Setting up IPC...");
             using (var scope = app.Services.CreateScope())
@@ -231,10 +305,10 @@ if (HybridSupport.IsElectronActive)
 }
 
 // Release mutex when application stops
-app.Lifetime.ApplicationStopping.Register(() =>
-{
-    mutex?.ReleaseMutex();
-});
+// app.Lifetime.ApplicationStopping.Register(() =>
+// {
+//     mutex?.ReleaseMutex();
+// });
 
 // Add middleware to log all requests in development
 if (app.Environment.IsDevelopment())
@@ -252,9 +326,26 @@ if (!app.Environment.IsDevelopment())
     // Setup a basic web server for serving static files in production
     app.UseDefaultFiles();
     app.UseStaticFiles();
-    
+
     // Add fallback route
     app.MapFallbackToFile("index.html");
 }
 
-app.Run();
+async Task CleanUpAsync()
+{
+    Console.WriteLine("Cleaning up (async)...");
+    try
+    {
+        using (var scope = app.Services.CreateScope())
+        {
+            var comPortService = scope.ServiceProvider.GetRequiredService<ComPortService>();
+            await comPortService.DisconnectAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error during async cleanup: {ex.Message}");
+    }
+}
+
+await app.RunAsync();

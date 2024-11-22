@@ -6,14 +6,12 @@ namespace Models
     {
         public int MeasurementId { get; set; }
         public int ProductId { get; set; }
-        public int SpecId { get; set; }
+        public int? SpecId { get; set; }
         public double MeasuredValue { get; set; }
-        public bool IsWithinSpec { get; set; }
         public DateTime MeasuredAt { get; set; }
-
-        // Navigation properties
+        [ForeignKey("ProductId")]
         public virtual Product Product { get; set; } = null!;
         [ForeignKey("SpecId")]
-        public virtual ModelSpecification Specification { get; set; } = null!;
+        public virtual ModelSpecification? Specification { get; set; }
     }
 } 

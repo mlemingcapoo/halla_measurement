@@ -5,7 +5,7 @@ class ProductService {
                 const data = {
                     modelId: parseInt(productData.modelId),
                     measurementDate: productData.measurementDate || new Date().toISOString(),
-                    status: productData.status || 'Pending'
+                    moldNumber: productData.moldNumber || ''
                 };
 
                 window.electronAPI.send('product-create', JSON.stringify(data));
@@ -38,24 +38,16 @@ class ProductService {
     }
 
     static async getProductsByModelId(modelId) {
-        //console.log('ProductService: getProductsByModelId called with modelId:', modelId);
         return new Promise((resolve, reject) => {
             try {
-                //console.log('ProductService: Starting getProductsByModelId');
-                //console.log('ProductService: Sending request for modelId:', modelId);
-
                 window.electronAPI.send('product-getByModelId', modelId);
 
                 window.electronAPI.receive('product-list', (result) => {
-                    //console.log('ProductService: Received product-list response:', result);
                     try {
                         let products = [];
                         if (result && result[0]) {
-                            //console.log('ProductService: Parsing result[0]:', result[0]);
                             products = JSON.parse(result[0]);
-                            //console.log('ProductService: Successfully parsed products:', products);
                         }
-                        //console.log('ProductService: Resolving with products:', products);
                         resolve(products);
                     } catch (error) {
                         console.error('ProductService: Error parsing products:', error);
@@ -74,13 +66,13 @@ class ProductService {
         });
     }
 
-    static async updateProductStatus(productId, status, measurementDate = null) {
+    static async updateProduct(productId, measurementDate = null, moldNumber = '') {
         return new Promise((resolve, reject) => {
             try {
                 const data = {
                     productId: parseInt(productId),
-                    status: status,
-                    measurementDate: measurementDate
+                    measurementDate: measurementDate,
+                    moldNumber: moldNumber
                 };
                 window.electronAPI.send('product-updateStatus', JSON.stringify(data));
                 window.electronAPI.receive('product-updated', (result) => resolve(JSON.parse(result)));
@@ -99,4 +91,70 @@ class ProductService {
         });
     }
 
+    static async getProductsByModelAndMold(modelId, moldNumber = '') {
+        return new Promise((resolve, reject) => {
+            try {
+                if (!moldNumber) {
+                    return this.getProductsByModelId(modelId)
+                        .then(resolve)
+                        .catch(reject);
+                }
+
+                console.log('🔍 Getting products for model:', modelId, 'and mold:', moldNumber);
+                
+                this.getProductsByModelId(modelId)
+                    .then(products => {
+                        const filteredProducts = products.filter(p => p.MoldNumber === moldNumber);
+                        console.log('📊 Filtered products:', {
+                            total: products.length,
+                            filtered: filteredProducts.length,
+                            moldNumber
+                        });
+                        resolve(filteredProducts);
+                    })
+                    .catch(reject);
+
+            } catch (error) {
+                console.error('❌ Error in getProductsByModelAndMold:', error);
+                reject(error);
+            }
+        });
+    }
+
+    static async getMoldsByModel(modelId) {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('🚀 getMoldsByModel called with modelId:', modelId);
+                
+                const data = JSON.stringify({ modelId: modelId });
+                console.log('📦 Sending data to IPC:', data);
+                
+                window.electronAPI.send('molds-getByModel', data);
+                
+                window.electronAPI.receive('molds-list', (result) => {
+                    console.log('✅ Received molds-list result:', result);
+                    try {
+                        // Check if result is already an object
+                        const molds = typeof result === 'string' ? JSON.parse(result) : result;
+                        console.log('📊 Parsed molds:', molds);
+                        resolve(molds);
+                    } catch (error) {
+                        console.error('❌ Error parsing molds:', error);
+                        console.error('Raw result:', result);
+                        resolve([]);
+                    }
+                });
+                
+                window.electronAPI.receive('molds-error', (error) => {
+                    console.error('❌ Received molds-error:', error);
+                    console.error('Error type:', typeof error);
+                    console.error('Error stringified:', JSON.stringify(error));
+                    reject(new Error(error[0] || error));
+                });
+            } catch (error) {
+                console.error('❌ Exception in getMoldsByModel:', error);
+                reject(error);
+            }
+        });
+    }
 } 

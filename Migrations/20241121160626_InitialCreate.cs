@@ -10,16 +10,51 @@ namespace halla_measurement_1.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "ActionHistories",
+                columns: table => new
+                {
+                    ActionHistoryId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TableName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ColumnName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    RecordId = table.Column<int>(type: "int", nullable: false),
+                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    OldValue = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NewValue = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ActionType = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    UserName = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ActionHistories", x => x.ActionHistoryId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Equips",
+                columns: table => new
+                {
+                    EquipId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EquipName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Equips", x => x.EquipId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Models",
                 columns: table => new
                 {
                     ModelId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ModelCode = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    ModelName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PartNo = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    PartName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Material = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    TotalProducts = table.Column<int>(type: "int", nullable: false)
+                    ProductDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    WO = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Machine = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -27,24 +62,21 @@ namespace halla_measurement_1.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Images",
+                name: "ModelImages",
                 columns: table => new
                 {
                     ImageId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ModelId = table.Column<int>(type: "int", nullable: false),
-                    FileName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    FilePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ContentType = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    FileSize = table.Column<long>(type: "bigint", nullable: false),
-                    UploadedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    DisplayOrder = table.Column<int>(type: "int", nullable: false)
+                    FileName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Base64Data = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ContentType = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ModelId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Images", x => x.ImageId);
+                    table.PrimaryKey("PK_ModelImages", x => x.ImageId);
                     table.ForeignKey(
-                        name: "FK_Images_Models_ModelId",
+                        name: "FK_ModelImages_Models_ModelId",
                         column: x => x.ModelId,
                         principalTable: "Models",
                         principalColumn: "ModelId",
@@ -57,12 +89,12 @@ namespace halla_measurement_1.Migrations
                 {
                     SpecId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ModelId = table.Column<int>(type: "int", nullable: false),
                     SpecName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    MinValue = table.Column<double>(type: "float", nullable: false),
-                    MaxValue = table.Column<double>(type: "float", nullable: false),
+                    EquipName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    MinValue = table.Column<double>(type: "float", nullable: true),
+                    MaxValue = table.Column<double>(type: "float", nullable: true),
                     Unit = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    DisplayOrder = table.Column<int>(type: "int", nullable: false)
+                    ModelId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -72,7 +104,7 @@ namespace halla_measurement_1.Migrations
                         column: x => x.ModelId,
                         principalTable: "Models",
                         principalColumn: "ModelId",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -83,7 +115,7 @@ namespace halla_measurement_1.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ModelId = table.Column<int>(type: "int", nullable: false),
                     MeasurementDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    MoldNumber = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -103,9 +135,8 @@ namespace halla_measurement_1.Migrations
                     MeasurementId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ProductId = table.Column<int>(type: "int", nullable: false),
-                    SpecId = table.Column<int>(type: "int", nullable: false),
+                    SpecId = table.Column<int>(type: "int", nullable: true),
                     MeasuredValue = table.Column<double>(type: "float", nullable: false),
-                    IsWithinSpec = table.Column<bool>(type: "bit", nullable: false),
                     MeasuredAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -115,7 +146,8 @@ namespace halla_measurement_1.Migrations
                         name: "FK_Measurements_ModelSpecifications_SpecId",
                         column: x => x.SpecId,
                         principalTable: "ModelSpecifications",
-                        principalColumn: "SpecId");
+                        principalColumn: "SpecId",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Measurements_Products_ProductId",
                         column: x => x.ProductId,
@@ -124,14 +156,10 @@ namespace halla_measurement_1.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Images_ModelId",
-                table: "Images",
-                column: "ModelId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Measurements_MeasuredAt",
                 table: "Measurements",
-                column: "MeasuredAt");
+                column: "MeasuredAt")
+                .Annotation("SqlServer:Clustered", false);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Measurements_ProductId",
@@ -144,10 +172,16 @@ namespace halla_measurement_1.Migrations
                 column: "SpecId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Models_ModelCode",
+                name: "IX_ModelImages_ModelId",
+                table: "ModelImages",
+                column: "ModelId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Models_PartNo",
                 table: "Models",
-                column: "ModelCode",
-                unique: true);
+                column: "PartNo",
+                unique: true)
+                .Annotation("SqlServer:Clustered", false);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ModelSpecifications_ModelId",
@@ -157,7 +191,8 @@ namespace halla_measurement_1.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Products_MeasurementDate",
                 table: "Products",
-                column: "MeasurementDate");
+                column: "MeasurementDate")
+                .Annotation("SqlServer:Clustered", false);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Products_ModelId",
@@ -168,10 +203,16 @@ namespace halla_measurement_1.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Images");
+                name: "ActionHistories");
+
+            migrationBuilder.DropTable(
+                name: "Equips");
 
             migrationBuilder.DropTable(
                 name: "Measurements");
+
+            migrationBuilder.DropTable(
+                name: "ModelImages");
 
             migrationBuilder.DropTable(
                 name: "ModelSpecifications");

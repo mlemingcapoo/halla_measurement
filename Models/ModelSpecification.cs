@@ -8,24 +8,15 @@ namespace Models
         [Key]
         public int SpecId { get; set; }
 
-        [ForeignKey("Model")]
-        public int ModelId { get; set; }
-
         [Required]
         public string SpecName { get; set; } = string.Empty;
-
         [Required]
-        public double MinValue { get; set; }
-
-        [Required]
-        public double MaxValue { get; set; }
-
+        public string EquipName { get; set; } = string.Empty;
+        public double? MinValue { get; set; }
+        public double? MaxValue { get; set; }
         public string? Unit { get; set; }
-
-        [Required]
-        public int DisplayOrder { get; set; }
-
-        // Navigation property
+        public int ModelId { get; set; }    
+        [ForeignKey("ModelId")]
         public virtual Model Model { get; set; } = null!;
     }
 } 

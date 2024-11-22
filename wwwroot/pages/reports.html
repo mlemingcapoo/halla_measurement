@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports - Halla Electronics Vina</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../css/output.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .select2-container .select2-selection--single {
@@ -34,6 +34,7 @@
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="../js/model-service.js"></script>
     <script src="../js/model-spec-service.js"></script>
@@ -68,11 +69,11 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-lg shadow">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-center">Product Measurements</h3>
-                    <select id="productionTimeFilter" class="p-2 border rounded">
-                        <option value="daily">Theo ngày</option>
-                        <option value="weekly">Theo tuần</option>
-                        <option value="monthly">Theo tháng</option>
+                    <h3 class="text-lg font-semibold text-center text-black">Product Measurements</h3>
+                    <select id="productionTimeFilter" class="p-2 border rounded text-black">
+                        <option value="daily" class="text-black">Theo ngày</option>
+                        <option value="weekly" class="text-black">Theo tuần</option>
+                        <option value="monthly" selected class="text-black">Theo tháng</option>
                     </select>
                 </div>
                 <div style="height: 400px;">
@@ -80,270 +81,46 @@
                 </div>
             </div>
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-semibold mb-4 text-center">Defect Rate</h3>
+                <h3 class="text-lg font-semibold mb-4 text-center text-black">Defect Rate</h3>
                 <canvas id="qualityChart"></canvas>
             </div>
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-semibold mb-4 text-center">Efficiency Analysis</h3>
-                <canvas id="efficiencyChart"></canvas>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-semibold mb-4 text-center">Resource Utilization</h3>
-                <canvas id="resourceChart"></canvas>
+            <div class="bg-white p-6 rounded-lg shadow col-span-2">
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-center text-black">Measurement Analysis</h3>
+                        <div class="flex items-center gap-2">
+                            <label for="fromDate" class="text-sm font-medium text-black">From:</label>
+                            <input type="date" id="fromDate" class="p-2 border rounded text-black" placeholder="From Date">
+                            <label for="toDate" class="text-sm font-medium text-black">To:</label>
+                            <input type="date" id="toDate" class="p-2 border rounded text-black" placeholder="To Date">
+                        </div>
+                    </div>
+                    <div class="flex justify-end items-center gap-4">
+                        <select id="modelSelect" class="p-2 border rounded text-black">
+                            <option value="" class="text-black">Select Model</option>
+                        </select>
+                        <select id="specSelect" class="p-2 border rounded text-black">
+                            <option value="" class="text-black">Select Spec</option>
+                        </select>
+                        <select id="moldSelect" class="p-2 border rounded text-black">
+                            <option value="" class="text-black">All Molds</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="height: 500px;">
+                    <canvas id="measurementChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
-
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="../js/PopupUtil.js"></script>
+    <script src="./js/report.js"></script>
+    <script src="./js/report-main-chart.js"></script>
     <script>
-        // Initialize clock
-        function updateClock() {
-            const now = new Date();
-            $('#clock').text(now.toLocaleTimeString());
-            $('#date').text(now.toLocaleDateString());
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
 
-        // Initialize Select2
-        $(document).ready(function () {
-            $('#productionTimeFilter').select2();
-        });
-
-        // Chart configurations and initialization
-        const chartConfigs = {
-            production: {
-                type: 'bar',
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [
-                        {
-                            label: 'OK',
-                            data: [150, 142, 160, 145, 155, 140, 148],
-                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                            borderColor: 'rgb(59, 130, 246)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'NG',
-                            data: [12, 15, 10, 8, 14, 11, 13],
-                            backgroundColor: 'rgba(249, 115, 22, 0.8)',
-                            borderColor: 'rgb(249, 115, 22)',
-                            borderWidth: 1
-                        }
-                    ]
-                }
-            },
-            quality: {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    datasets: [{
-                        label: 'Defect Rate (%)',
-                        data: [2.1, 1.8, 1.5, 1.9, 1.2, 1.0],
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        tension: 0.4,
-                        fill: false
-                    }]
-                }
-            },
-            efficiency: {
-                type: 'pie',
-                data: {
-                    labels: ['Active', 'Idle', 'Maintenance', 'Setup'],
-                    datasets: [{
-                        data: [65, 15, 12, 8],
-                        backgroundColor: [
-                            'rgba(75, 192, 192, 0.2)',
-                            'rgba(255, 206, 86, 0.2)',
-                            'rgba(153, 102, 255, 0.2)',
-                            'rgba(255, 159, 64, 0.2)'
-                        ],
-                        borderColor: [
-                            'rgba(75, 192, 192, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(153, 102, 255, 1)',
-                            'rgba(255, 159, 64, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                }
-            },
-            resource: {
-                type: 'doughnut',
-                data: {
-                    labels: ['Labor', 'Materials', 'Energy', 'Other'],
-                    datasets: [{
-                        data: [40, 35, 15, 10],
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.2)',
-                            'rgba(54, 162, 235, 0.2)',
-                            'rgba(255, 206, 86, 0.2)',
-                            'rgba(75, 192, 192, 0.2)'
-                        ],
-                        borderColor: [
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(75, 192, 192, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                }
-            }
-        };
-
-        // Initialize charts
-        const charts = {};
-        Object.entries(chartConfigs).forEach(([key, config]) => {
-            const ctx = document.getElementById(`${key}Chart`).getContext('2d');
-            charts[key] = new Chart(ctx, {
-                type: config.type,
-                data: config.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: key === 'production' ? false : true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    },
-                    scales: (config.type === 'bar' || config.type === 'line') ? {
-                        y: {
-                            beginAtZero: true
-                        }
-                    } : undefined
-                }
-            });
-        });
-
-        // Add these functions after the chartConfigs definition
-        async function getProductData(timeFilter) {
-            try {
-                const models = await ModelService.getAllModels();
-                let allProducts = [];
-
-                // Fetch products for all models
-                for (const model of models) {
-                    const products = await ProductService.getProductsByModelId(model.ModelId);
-                    const specs = await ModelSpecificationService.getSpecifications(model.ModelId);
-
-                    // Enhance products with OK/NG status
-                    products.forEach(product => {
-                        const isOK = product.Measurements.every(measurement => {
-                            const spec = specs.find(s => s.SpecId === measurement.SpecId);
-                            return measurement.Value >= spec.MinValue && measurement.Value <= spec.MaxValue;
-                        });
-                        product.status = isOK ? 'OK' : 'NG';
-                    });
-
-                    allProducts = [...allProducts, ...products];
-                }
-
-                // Sort products by date
-                allProducts.sort((a, b) => new Date(a.MeasurementDate) - new Date(b.MeasurementDate));
-
-                // Group products based on time filter
-                const now = new Date();
-                const timeData = { labels: [], ok: [], ng: [] };
-
-                switch (timeFilter) {
-                    case 'daily':
-                        // Last 7 days
-                        for (let i = 6; i >= 0; i--) {
-                            const date = new Date(now);
-                            date.setDate(date.getDate() - i);
-                            const dayStr = date.toLocaleDateString('vi-VN', { weekday: 'short' });
-
-                            const dayProducts = allProducts.filter(p =>
-                                new Date(p.MeasurementDate).toDateString() === date.toDateString()
-                            );
-
-                            timeData.labels.push(dayStr);
-                            timeData.ok.push(dayProducts.filter(p => p.status === 'OK').length);
-                            timeData.ng.push(dayProducts.filter(p => p.status === 'NG').length);
-                        }
-                        break;
-
-                    case 'weekly':
-                        // Last 4 weeks
-                        for (let i = 3; i >= 0; i--) {
-                            const weekStart = new Date(now);
-                            weekStart.setDate(weekStart.getDate() - (i * 7));
-                            const weekEnd = new Date(weekStart);
-                            weekEnd.setDate(weekEnd.getDate() + 6);
-
-                            console.log(`Week ${4 - i}:`, {
-                                start: weekStart.toISOString(),
-                                end: weekEnd.toISOString()
-                            });
-
-                            const weekProducts = allProducts.filter(p => {
-                                const date = new Date(p.MeasurementDate);
-                                date.setHours(0, 0, 0, 0);
-                                weekStart.setHours(0, 0, 0, 0);
-                                weekEnd.setHours(23, 59, 59, 999);
-
-                                return date >= weekStart && date <= weekEnd;
-                            });
-
-                            console.log(`Week ${4 - i} products:`, weekProducts.length);
-
-                            timeData.labels.push(`Tuần ${4 - i}`);
-                            timeData.ok.push(weekProducts.filter(p => p.status === 'OK').length);
-                            timeData.ng.push(weekProducts.filter(p => p.status === 'NG').length);
-                        }
-                        break;
-
-                    case 'monthly':
-                        // Last 6 months
-                        for (let i = 5; i >= 0; i--) {
-                            const date = new Date(now);
-                            date.setMonth(date.getMonth() - i);
-                            const monthStr = date.toLocaleDateString('vi-VN', { month: 'short' });
-
-                            const monthProducts = allProducts.filter(p => {
-                                const prodDate = new Date(p.MeasurementDate);
-                                return prodDate.getMonth() === date.getMonth() &&
-                                    prodDate.getFullYear() === date.getFullYear();
-                            });
-
-                            timeData.labels.push(monthStr);
-                            timeData.ok.push(monthProducts.filter(p => p.status === 'OK').length);
-                            timeData.ng.push(monthProducts.filter(p => p.status === 'NG').length);
-                        }
-                        break;
-                }
-
-                return timeData;
-            } catch (error) {
-                console.error('Error fetching product data:', error);
-                return null;
-            }
-        }
-
-        // Replace the production time filter handler with this:
-        $('#productionTimeFilter').on('change', async function (e) {
-            const timeFilter = e.target.value;
-            const timeData = await getProductData(timeFilter);
-
-            if (timeData) {
-                charts.production.data.labels = timeData.labels;
-                charts.production.data.datasets[0].data = timeData.ok;
-                charts.production.data.datasets[1].data = timeData.ng;
-                charts.production.update();
-            }
-        });
-
-        // Add initial data load
-        document.addEventListener('DOMContentLoaded', async () => {
-            const initialTimeData = await getProductData('daily');
-            if (initialTimeData) {
-                charts.production.data.labels = initialTimeData.labels;
-                charts.production.data.datasets[0].data = initialTimeData.ok;
-                charts.production.data.datasets[1].data = initialTimeData.ng;
-                charts.production.update();
-            }
-        });
     </script>
 </body>
 

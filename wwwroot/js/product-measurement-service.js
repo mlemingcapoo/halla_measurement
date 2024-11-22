@@ -10,13 +10,11 @@ class ProductSpecificationService {
                     measurementDate: measurementData.measurementDate || new Date().toISOString()
                 };
 
-                //console.log('Sending to backend:', data);
-
                 window.electronAPI.send('measurement-create', JSON.stringify(data));
 
                 window.electronAPI.receive('measurement-created', (result) => {
-                    //console.log('Received measurement-created:', result);
-                    resolve(JSON.parse(result));
+                    const measurement = JSON.parse(result);
+                    resolve(measurement);
                 });
 
                 window.electronAPI.receive('measurement-error', (error) => {
@@ -34,8 +32,13 @@ class ProductSpecificationService {
         return new Promise((resolve, reject) => {
             window.electronAPI.send('measurement-getByProduct', JSON.stringify(productId));
             window.electronAPI.receive('measurement-list', (result) => {
-                //console.log('Received measurements:', result);
-                resolve(JSON.parse(result));
+                try {
+                    const measurements = JSON.parse(result);
+                    resolve(measurements);
+                } catch (error) {
+                    console.error('Error parsing measurements:', error);
+                    reject(error);
+                }
             });
             window.electronAPI.receive('measurement-error', (error) => {
                 console.error('Measurement error:', error);
@@ -44,30 +47,11 @@ class ProductSpecificationService {
         });
     }
 
-    static async deleteMeasurement(id) {
-        return new Promise((resolve, reject) => {
-            //console.log('Sending delete request for measurement:', id);
-            window.electronAPI.send('measurement-delete', JSON.stringify(id));
-
-            window.electronAPI.receive('measurement-deleted', (result) => {
-                //console.log('Received measurement-deleted response:', result);
-                resolve(JSON.parse(result));
-            });
-
-            window.electronAPI.receive('measurement-error', (error) => {
-                console.error('Received measurement-error:', error);
-                reject(JSON.parse(error));
-            });
-        });
-    }
-
     static async getAllMeasurements() {
         return new Promise((resolve, reject) => {
-            //console.log('Calling getAllMeasurements');
             window.electronAPI.send('measurement-getAll', '');
 
             window.electronAPI.receive('measurement-list', (result) => {
-                //console.log('Raw measurement-list result:', result);
                 try {
                     let measurements;
                     if (typeof result === 'string') {
@@ -77,7 +61,6 @@ class ProductSpecificationService {
                     } else {
                         measurements = result;
                     }
-                    //console.log('Parsed measurements:', measurements);
                     resolve(measurements || []);
                 } catch (error) {
                     console.error('Parse error:', error);
@@ -88,6 +71,21 @@ class ProductSpecificationService {
             window.electronAPI.receive('measurement-error', (error) => {
                 console.error('getAllMeasurements error:', error);
                 reject(error);
+            });
+        });
+    }
+
+    static async deleteMeasurement(id) {
+        return new Promise((resolve, reject) => {
+            window.electronAPI.send('measurement-delete', JSON.stringify(id));
+
+            window.electronAPI.receive('measurement-deleted', (result) => {
+                resolve(JSON.parse(result));
+            });
+
+            window.electronAPI.receive('measurement-error', (error) => {
+                console.error('Received measurement-error:', error);
+                reject(JSON.parse(error));
             });
         });
     }

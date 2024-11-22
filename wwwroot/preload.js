@@ -2,15 +2,17 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
     send: (channel, data) => {
-        console.log('Sending on channel:', channel, 'with data:', data)
+        // console.log('Sending on channel:', channel, 'with data:', data)
         ipcRenderer.send(channel, data)
     },
     receive: (channel, func) => {
-        console.log('Setting up receiver on channel:', channel)
-        ipcRenderer.on(channel, (event, ...args) => {
-            console.log('Received on channel:', channel, 'with args:', args)
-            func(...args)
-        })
+        // Wrap the function in a self-removing listener
+        const listener = (event, ...args) => {
+            func(...args); // Execute the provided callback
+            ipcRenderer.removeListener(channel, listener); // Remove the listener after execution
+        };
+        ipcRenderer.on(channel, listener);
     },
-    closeApp: () => ipcRenderer.send('close-app')
+    receiveOnce: (channel, func) => ipcRenderer.once(channel, (event, ...args) => func(...args)),
+    closeApp: () => ipcRenderer.send('close-app'),
 })

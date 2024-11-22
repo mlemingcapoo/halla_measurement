@@ -4,8 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports - Halla Electronics Vina</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Settings - Halla Electronics Vina</title>
+    <link href="../css/output.css" rel="stylesheet">
+    <!-- import cdn tailwinds here -->
+    
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .select2-container .select2-selection--single {
@@ -31,6 +33,172 @@
         .select2-container--default .select2-selection--single .select2-selection__clear {
             display: none !important;
         }
+
+        /* Add new styles for the lists */
+        .list-container {
+            max-height: calc(100vh - 177px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+        }
+        
+        .list-item {
+            transition: all 0.2s ease-in-out;
+            width: calc(100% - 5px);
+            margin-left: 0;
+        }
+        
+        .list-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: scale(1);
+            opacity: 1;
+            transition: all 0.3s ease-out;
+        }
+
+        /* Animation classes */
+        .modal.showing {
+            display: flex !important;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .modal-content.animate-in {
+            animation: modalIn 0.3s ease-out forwards;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* Ensure the modal is visible when display: block is set */
+        .modal[style*="display: block"] {
+            display: flex !important;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        /* Update toast container z-index */
+        #toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 50;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .settings-container {
+            display: flex;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+        }
+
+        .left-panel {
+            width: 40%;
+            max-width: 40%;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .right-panel {
+            width: 60%;
+            max-width: 60%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .models-section {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .specs-section {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .search-container {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .list-container {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        /* Floating Action Button styles */
+        .fab-button {
+            position: absolute;
+            bottom: 90px;
+            right: 40px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
+        }
+
+        .fab-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .fab-button svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Update panel styles to support floating buttons */
+        .left-panel, .right-panel {
+            position: relative;
+        }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -47,177 +215,275 @@
     </div>
     <!-- Navbar -->
     <nav class="bg-white shadow-lg px-6 py-3 flex items-center justify-between">
-        <a href="../index.html" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+        <a href="../index.html" class="flex items-center text-black hover:text-gray-700 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span class="ml-2 font-medium">Back</span>
+            <span class="ml-2 font-semibold">Back</span>
         </a>
         <div class="flex items-center space-x-3">
             <img src="../images/logo.png" alt="Halla Electronics Vina" class="h-10">
-            <span class="text-gray-900 font-semibold text-lg">HALLA ELECTRONICS VINA</span>
+            <span class="text-black font-bold text-lg">HALLA ELECTRONICS VINA</span>
         </div>
         <h1 class="text-2xl font-bold text-orange-600">Settings Dashboard</h1>
-        <div class="text-gray-800 font-mono">
-            <span id="clock" class="text-lg"></span>
-            <div id="date" class="text-sm"></div>
+        <div class="text-black font-mono">
+            <span id="clock" class="text-lg font-semibold"></span>
+            <div id="date" class="text-sm font-medium"></div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <div class="container mx-auto p-6 space-y-6">
-        <div class="text-gray-900">
-            <!-- Tab Navigation -->
-            <div class="border-b border-gray-200 mb-4">
-                <nav class="flex space-x-4" aria-label="Tabs">
-                    <button
-                        class="tab-button px-4 py-2 font-medium rounded-t-lg border-b-2 border-blue-500 text-blue-600"
-                        data-tab="models">Models</button>
-                    <button class="tab-button px-4 py-2 font-medium text-gray-500 hover:text-gray-700"
-                        data-tab="specifications">Specifications</button>
-                </nav>
+    <div class="settings-container">
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <div class="search-container">
+                <input type="text" 
+                       id="model-search" 
+                       placeholder="Search models..." 
+                       class="w-full px-4 py-2 border rounded-lg text-black placeholder-gray-600">
             </div>
-
-            <!-- Models Tab -->
-            <div id="models-tab" class="tab-content grid grid-cols-2 gap-4 h-100">
-                <!-- Left Column: Model List -->
-                <div class="border rounded-lg p-4 flex flex-col overflow-scroll">
-                    <div class="sticky top-0 bg-white pb-4">
-                        <input type="text" placeholder="Search models..."
-                            class="w-full px-4 py-2 border rounded-lg mb-2">
-                    </div>
-                    <div class="overflow-y-auto flex-grow">
-                        <div class="space-y-4">
-                            <!-- Model Item Template -->
-                            <div class="border rounded-lg p-4 hover:bg-gray-50">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h4 class="font-semibold">HUB-23</h4>
-                                    <div class="space-x-2">
-                                        <button class="text-blue-600 hover:text-blue-800"
-                                            onclick="editModel('HUB-23')">Edit</button>
-                                        <button class="text-blue-600 hover:text-blue-800"
-                                            onclick="switchToSpecs('HUB-23')">Edit
-                                            Specs</button>
-                                        <button class="text-red-600 hover:text-red-800">Delete</button>
-                                    </div>
-                                </div>
-                                <p class="text-sm text-gray-600">Description of the model goes here...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Column: Create/Edit Form -->
-                <div class="border rounded-lg p-4 overflow-y-auto">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold" id="form-title">Create New Model</h3>
-                        <button type="button" onclick="initNewModel()"
-                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            New Model
-                        </button>
-                    </div>
-                    <form id="model-form" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Model Code</label>
-                            <input type="text" name="modelCode" class="w-full px-4 py-2 border rounded-lg" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Model Name</label>
-                            <input type="text" name="modelName" class="w-full px-4 py-2 border rounded-lg" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Description</label>
-                            <textarea name="description" class="w-full px-4 py-2 border rounded-lg" rows="3"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Images</label>
-                            <input type="file" id="image-upload" multiple accept="image/*"
-                                class="w-full px-4 py-2 border rounded-lg" onchange="handleImageUpload(event)">
-                            <div id="image-preview" class="grid grid-cols-2 gap-4 mt-4"></div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Preview</label>
-                            <div id="image-preview" class="grid grid-cols-3 gap-2">
-                                <!-- Preview images will be inserted here -->
-                            </div>
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
-                            Save Model
-                        </button>
-                    </form>
+            <div class="models-section">
+                <div id="models-list" class="list-container space-y-2">
+                    <!-- Model items will be dynamically added here -->
                 </div>
             </div>
+            <button id="new-model-btn" 
+                    class="fab-button bg-blue-600 hover:bg-blue-700 text-white"
+                    title="Add New Model">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+            <button id="import-excel-btn" style="right: 120px;"
+                    class="fab-button bg-green-600 hover:bg-green-700 text-white"
+                    title="Import Excel">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+            </button>
+        </div>
 
-            <!-- Specifications Tab -->
-            <div id="specifications-tab" class="tab-content hidden grid grid-cols-2 gap-4">
-                <!-- Left Column: Spec List -->
-                <div class="border rounded-lg p-4 flex flex-col overflow-scroll">
-                    <div class="sticky top-0 bg-white space-y-4 pb-4">
-                        <select name="modelId" class="w-full px-4 py-2 border rounded-lg"
-                            id="specifications-model-select" onchange="loadSpecifications(this.value)">
-                            <!-- <option value="">Select Model</option> -->
-                        </select>
-                    </div>
-                    <div class="overflow-y-auto flex-grow">
-                        <div class="space-y-4">
-                            <!-- Specifications will be loaded here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Replace the specification form section (around line 106) -->
-                <div class="border rounded-lg p-4 overflow-y-auto">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold" id="spec-form-title">Create New Specification</h3>
-                        <button type="button" onclick="initNewSpecification()"
-                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            New Specification
-                        </button>
-                    </div>
-                    <form id="spec-form" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Model</label>
-                            <select name="modelId" class="w-full px-4 py-2 border rounded-lg" required>
-                                <!-- <option value="">Select Model</option> -->
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Specification Name</label>
-                            <input type="text" name="specName" class="w-full px-4 py-2 border rounded-lg" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Minimum Value</label>
-                            <input type="number" name="minValue" step="0.01" class="w-full px-4 py-2 border rounded-lg"
-                                required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Maximum Value</label>
-                            <input type="number" name="maxValue" step="0.01" class="w-full px-4 py-2 border rounded-lg"
-                                required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Unit</label>
-                            <input type="text" name="unit" class="w-full px-4 py-2 border rounded-lg"
-                                placeholder="e.g., mm, cm, kg" required>
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
-                            Save Specification
-                        </button>
-                    </form>
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <div class="search-container">
+                <input type="text" 
+                       id="spec-search" 
+                       placeholder="Search specifications..." 
+                       class="w-full px-4 py-2 border rounded-lg text-black placeholder-gray-600">
+            </div>
+            <div class="specs-section">
+                <div id="specs-list" class="list-container space-y-2">
+                    <!-- Specification items will be dynamically added here -->
                 </div>
             </div>
-            <!-- Toast Container -->
+            <button id="new-spec-btn" 
+                    class="fab-button bg-green-600 hover:bg-green-700 text-white"
+                    title="Add New Specification"
+                    disabled>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
         </div>
     </div>
+
+    <!-- Model Form Modal -->
+    <div id="model-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-black text-xl font-bold" id="model-form-title">Create New Model</h3>
+                <button type="button" onclick="closeModelModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="model-form" class="space-y-4">
+                <div>
+                    <label class="block text-black font-semibold mb-1">Part No.</label>
+                    <input type="text" name="partNo" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Part Name</label>
+                    <input type="text" name="partName" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Material</label>
+                    <input type="text" name="material" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Production Date</label>
+                    <input type="date" name="productDate" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Images (Max 4 Images)</label>
+                    <input type="file" id="image-upload" multiple accept="image/*" 
+                           class="w-full px-4 py-2 border rounded-lg text-black">
+                    <div id="image-preview" class="grid grid-cols-3 gap-2 mt-2"></div>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                    Save Model
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Specification Form Modal -->
+    <div id="spec-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-black text-xl font-bold" id="spec-form-title">Create New Specification</h3>
+                <button type="button" onclick="closeSpecModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="spec-form" class="space-y-4">
+                <input type="hidden" name="modelId">
+                <div>
+                    <label class="block text-black font-semibold mb-1">Equipment</label>
+                    <div class="flex gap-2 relative">
+                        <select name="equipName" class="flex-1 px-4 py-2 border rounded-lg text-black" required>
+                            <option value="">Select Equipment</option>
+                        </select>
+                        <div class="flex gap-1">
+                            <button type="button" 
+                                    id="delete-equip-btn"
+                                    class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                    title="Delete Selected Equipment">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                            <button type="button" 
+                                    id="add-equip-btn"
+                                    class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                    title="Add New Equipment">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Specification Name</label>
+                    <input type="text" name="specName" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Minimum Value</label>
+                    <input type="number" name="minValue" step="0.0001" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Maximum Value</label>
+                    <input type="number" name="maxValue" step="0.0001" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <div>
+                    <label class="block text-black font-semibold mb-1">Unit</label>
+                    <input type="text" name="unit" class="w-full px-4 py-2 border rounded-lg text-black placeholder-gray-600" 
+                    placeholder="e.g., mm, cm, kg" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                    Save Specification
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add this after your existing modals -->
+    <div id="equip-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-black text-xl font-bold" id="equip-form-title">Add New Equipment</h3>
+                <button type="button" onclick="closeEquipModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="equip-form" class="space-y-4">
+                <div>
+                    <label class="block text-black font-semibold mb-1">Equipment Name</label>
+                    <input type="text" name="equipName" class="w-full px-4 py-2 border rounded-lg text-black" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                    Save Equipment
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Excel Modal -->
+    <div id="import-excel-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+        <div class="bg-white rounded-lg p-6 w-full max-w-6xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-black text-xl font-bold">Import Excel</h3>
+                <button type="button" onclick="closeImportExcelModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label class="block text-black font-semibold mb-1">Select Folder</label>
+                <div class="flex items-center">
+                    <input type="text" id="folderPicker" class="w-full px-4 py-2 border rounded-lg text-black" placeholder="Folder Path" readonly>
+                    <button type="button" id="browseExcelFolder" class="ml-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Browse
+                    </button>
+                </div>
+            </div>
+            <div class="mb-4">
+                <p class="text-gray-600" id="before-scan-text">
+                    Hãy chọn một folder để quét các file Excel. Lưu ý những file excel phải có PartNo trong tên file. <br>Ví dụ: LQC Check Item-<b>MEK41446907</b>-Bearing Housing 24_Ver 16_20220719.xlsx
+                </p>
+            </div>
+            <div id="loadingCircle" class="hidden flex justify-center items-center mb-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                <span class="text-black ml-2">Quét các file Excel...</span>
+            </div>
+            <div id="fileTable" class="hidden" style="max-height: 47vh; overflow-y: auto;">
+                <table class="w-full text-left table-collapse">
+                    <thead class="sticky top-0">
+                        <tr>
+                            <th class="text-sm font-medium text-gray-700 p-2 bg-gray-100 min-w-28">
+                                <input type="checkbox" id="select-all-files">
+                                Select ALL
+                            </th>
+                            <th class="text-sm font-medium text-gray-700 p-2 bg-gray-100">File Name</th>
+                            <th class="text-sm font-medium text-gray-700 p-2 bg-gray-100">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileTableBody" class="text-black">
+                        <!-- Dynamically populated rows -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="mb-4 mt-4">
+                <p class="text-gray-600 hidden" id="after-scan-text">
+                    Hãy chọn danh sách các file cần import. Nếu model đó đã tồn tại thì bạn cần phải xóa model đó trước, hoặc tích chọn "Tự xóa model" <br>
+                    Bạn cũng có thể tạm thời đóng cửa sổ này nếu cần kiểm tra lại DS model, lựa chọn hiện tại sẽ được lưu lại trừ khi bạn quay lại Trang Chủ.
+                </p>
+            </div>
+            <div class="mt-4 gap-2 flex justify-end">
+                <button type="button" id="importSelectedFilesBtn" class="hidden bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Import Selected Files
+                </button>
+                <button type="button" id="scanFolderBtn" class="bg-yellow-600 hidden text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Scan Folder
+                </button>
+                <button type="button" id="resetModalBtn" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                    Xóa kết quả quét
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- import jquery here -->
+    <script src="../lib/jquery/dist/jquery.js"></script>
+    <script src="../js/PopupUtil.js"></script>
     <script src="./js/settings.js"></script>
 
     
