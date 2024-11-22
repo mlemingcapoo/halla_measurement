@@ -4,3 +4,7 @@
 obj/desktop/
 bin/Desktop/
 config/database.config.json
+
+.fake
+/wwwroot/templates/excel/models
+/wwwroot/images
