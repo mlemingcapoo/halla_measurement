@@ -1,7 +1,7 @@
 <div class="text-gray-900">
     <!-- Header Section -->
     <div class="border-b pb-4 mb-4">
-        <p class="text-gray-600 font-semibold" id="measurement-start-text">Đang kiểm tra kết nối tới thiết bị đo...</p>
+        <p class="text-gray-600 font-semibold" id="measurement-start-text">(Checking... please wait) Đang kiểm tra kết nối tới thiết bị đo...</p>
     </div>
 
     <!-- Main Content Grid -->
@@ -87,7 +87,8 @@
                 <div id="measurement-buttons" class="flex justify-center space-x-4">
                     <button type="button" id="remeasure-prev-spec"
                         class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors hidden">
-                        Đo Lại TS trước đó (Space)
+                        <div class="text-sm">Đo Lại TS trước đó</div>
+                        <div class="text-xs">(Space)</div>
                     </button>
                 </div>
             </div>
@@ -105,25 +106,28 @@
     <!-- Continue Dialog -->
     <div id="continue-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h4 class="text-lg font-bold mb-4">Đã đo xong sản phẩm này</h4>
+            <h4 class="text-lg font-bold mb-4">Đã đo xong sản phẩm (Done measurement)</h4>
             
             <div id="measurements-summary" class="mb-4 max-h-[50vh] overflow-auto">
                 <!-- Summary will be populated dynamically -->
             </div>
             
-            <p class="mb-4">Tiếp tục đo sản phẩm khác?</p>
+            <p class="mb-4">Tiếp tục đo sản phẩm khác? (Continue?)</p>
             <div class="flex justify-end space-x-3">
                 <button type="button" id="start-over"
                     class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
-                    Đo Lại (Space)
+                    <div>Đo Lại</div>
+                    <div>(Start Over)</div>
                 </button>
                 <button type="button" id="cancel-measuring"
                     class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                    Lưu và Thoát (Esc)
+                    <div>Lưu và Thoát</div>
+                    <div>(Save and Exit)</div>
                 </button>
                 <button type="button" id="continue-measuring"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Lưu và Tiếp Tục (Enter)
+                    <div>Lưu và Tiếp Tục</div>
+                    <div>(Save and Continue)</div>
                 </button>
             </div>
         </div>
@@ -150,11 +154,13 @@
             <div class="flex justify-end space-x-3">
                 <button type="button" id="modal-mold-cancel"
                     class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                    Hủy
+                    <div>Hủy</div>
+                    <div>(Cancel)</div>
                 </button>
                 <button type="button" id="modal-mold-confirm"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Xác nhận (Enter)
+                    <div>Xác nhận (Enter)</div>
+                    <div>(Confirm)</div>
                 </button>
             </div>
         </div>

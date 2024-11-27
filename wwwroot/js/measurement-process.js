@@ -31,7 +31,9 @@ class MeasurementProcess {
         });
 
         window.electronAPI.receive('command-error', (errorMessage) => {
-            $('#measurement-start-text').text('Không thể kết nối tới thiết bị đo, vui lòng kiểm tra trong menu Phần cứng');
+            $('#measurement-start-text').text('Không thể kết nối tới thiết bị đo, vui lòng kiểm tra trong menu Phần cứng (Please check hardware settings or measurement device).');
+            // add class danger 
+            $('#measurement-start-text').addClass('text-red-500');
             console.error('Command error:', errorMessage);
         });
 
