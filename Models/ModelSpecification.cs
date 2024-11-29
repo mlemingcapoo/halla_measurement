@@ -15,7 +15,9 @@ namespace Models
         public double? MinValue { get; set; }
         public double? MaxValue { get; set; }
         public string? Unit { get; set; }
-        public int ModelId { get; set; }    
+        public int ModelId { get; set; }
+        [Required]
+        public string ProcessName { get; set; } = string.Empty;
         [ForeignKey("ModelId")]
         public virtual Model Model { get; set; } = null!;
     }

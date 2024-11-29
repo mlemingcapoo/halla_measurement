@@ -15,6 +15,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ModelImage> ModelImages { get; set; } = null!;
     public DbSet<ActionHistory> ActionHistories { get; set; } = null!;
     public DbSet<Equip> Equips { get; set; } = null!;
+    public DbSet<ModelDocument> ModelDocuments { get; set; }
+    public DbSet<User> Users { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +66,26 @@ public class ApplicationDbContext : DbContext
             .WithMany(m => m.Images)
             .HasForeignKey(i => i.ModelId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Add unique index on Username
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique();
+
+        // Add default admin user
+        modelBuilder.Entity<User>().HasData(
+            new User
+            {
+                UserId = 1,
+                Username = "admin",
+                // In production, use proper password hashing
+                Password = "admin123",
+                FullName = "Administrator",
+                RoleType = UserRole.Admin,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            }
+        );
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

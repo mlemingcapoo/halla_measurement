@@ -14,13 +14,16 @@ namespace Services
     {
         private readonly ILogger<MeasurementIPCService> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ActionHistoryService _historyService;
 
         public MeasurementIPCService(
             ILogger<MeasurementIPCService> logger,
-            IServiceScopeFactory scopeFactory)
+            IServiceScopeFactory scopeFactory,
+            ActionHistoryService historyService)
         {
             _logger = logger;
             _scopeFactory = scopeFactory;
+            _historyService = historyService;
         }
 
         public void RegisterEvents(BrowserWindow window)
@@ -75,6 +78,11 @@ namespace Services
 
                     context.Measurements.Add(measurement);
                     await context.SaveChangesAsync();
+
+                    await _historyService.TrackCreate(
+                        "Measurements", 
+                        measurement.MeasurementId,
+                        $"Created measurement: {measurement.MeasuredValue} for Product {measurement.ProductId}, Spec {spec.SpecName}");
 
                     // Create DTO for response
                     var measurementDTO = new MeasurementDTO
@@ -206,6 +214,14 @@ namespace Services
                     {
                         throw new Exception($"Measurement with ID {measurementId} not found");
                     }
+
+                    var spec = await context.ModelSpecifications
+                        .FirstOrDefaultAsync(s => s.SpecId == measurement.SpecId);
+                    
+                    await _historyService.TrackDelete(
+                        "Measurements", 
+                        measurementId,
+                        $"Deleted measurement: {measurement.MeasuredValue} for Product {measurement.ProductId}, Spec {spec?.SpecName ?? "Unknown"}");
 
                     context.Measurements.Remove(measurement);
                     await context.SaveChangesAsync();

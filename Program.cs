@@ -5,6 +5,7 @@ using Services;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Models;
+using halla_measurement_1.Middleware;
 
 // Add mutex at the start
 // using var mutex = new Mutex(true, "HallaMeasurementAppSingleInstance", out bool createdNew);
@@ -124,6 +125,17 @@ builder.Services.AddScoped<IIPCService, MeasurementIPCService>();
 builder.Services.AddScoped<IIPCService, EquipIPCService>();
 builder.Services.AddScoped<IIPCService, ImageIPCService>();
 
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<DocumentIPCService>();
+builder.Services.AddScoped<IIPCService, DocumentIPCService>();
+builder.Services.AddSingleton<DocumentSyncService>();
+
+// Add this with your other service registrations
+builder.Services.AddScoped<IIPCService, AuthIPCService>();
+builder.Services.AddScoped<IIPCService, UserIPCService>();
+builder.Services.AddScoped<IIPCService, ActionHistoryIPCService>();
+builder.Services.AddScoped<ActionHistoryService>();
+
 // Add health checks
 builder.Services.AddHealthChecks();
 
@@ -190,6 +202,8 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseAuthorization();
+app.UsePdfAccess();
+app.UseStaticFiles();
 
 // Define default route (though it's not needed for single-page setup)
 // app.MapControllerRoute(

@@ -8,5 +8,6 @@ namespace Models.Requests
         public double MinValue { get; set; }
         public double MaxValue { get; set; }
         public string? Unit { get; set; }
+        public string ProcessName { get; set; } = string.Empty;
     }
 } 

@@ -14,13 +14,16 @@ namespace Services
     {
         private readonly ILogger<SpecificationIPCService> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ActionHistoryService _historyService;
 
         public SpecificationIPCService(
             ILogger<SpecificationIPCService> logger,
-            IServiceScopeFactory scopeFactory)
+            IServiceScopeFactory scopeFactory,
+            ActionHistoryService historyService)
         {
             _logger = logger;
             _scopeFactory = scopeFactory;
+            _historyService = historyService;
         }
 
         public void RegisterEvents(BrowserWindow window)
@@ -59,7 +62,8 @@ namespace Services
                         EquipName = data.EquipName,
                         MinValue = data.MinValue,
                         MaxValue = data.MaxValue,
-                        Unit = data.Unit
+                        Unit = data.Unit,
+                        ProcessName = data.ProcessName
                     };
 
                     context.ModelSpecifications.Add(spec);
@@ -73,11 +77,16 @@ namespace Services
                         EquipName = spec.EquipName,
                         MinValue = spec.MinValue ?? 0,
                         MaxValue = spec.MaxValue ?? 0,
-                        Unit = spec.Unit
+                        Unit = spec.Unit,
+                        ProcessName = spec.ProcessName
                     };
 
                     _logger.LogInformation($"Created specification: {spec.SpecId}");
                     Electron.IpcMain.Send(window, "spec-created", JsonSerializer.Serialize(specDTO, GetJsonSerializerOptions()));
+                    await _historyService.TrackCreate(
+                        "Specifications", 
+                        spec.SpecId,
+                        $"Created specification: {spec.SpecName} for Model {spec.ModelId}");
                 }
                 catch (Exception ex)
                 {
@@ -113,7 +122,8 @@ namespace Services
                         EquipName = spec.EquipName,
                         MinValue = spec.MinValue ?? 0,
                         MaxValue = spec.MaxValue ?? 0,
-                        Unit = spec.Unit
+                        Unit = spec.Unit,
+                        ProcessName = spec.ProcessName
                     };
 
                     _logger.LogInformation($"Retrieved specification: {specId}");
@@ -152,7 +162,8 @@ namespace Services
                         EquipName = s.EquipName,
                         MinValue = s.MinValue ?? 0,
                         MaxValue = s.MaxValue ?? 0,
-                        Unit = s.Unit
+                        Unit = s.Unit,
+                        ProcessName = s.ProcessName
                     }).ToList();
 
                     _logger.LogInformation($"Retrieved {specs.Count} specifications for model {request.ModelId}");
@@ -191,7 +202,7 @@ namespace Services
                     spec.MinValue = data.MinValue;
                     spec.MaxValue = data.MaxValue;
                     spec.Unit = data.Unit;
-
+                    spec.ProcessName = data.ProcessName;
                     await context.SaveChangesAsync();
 
                     var specDTO = new SpecificationDTO
@@ -202,11 +213,71 @@ namespace Services
                         EquipName = spec.EquipName,
                         MinValue = spec.MinValue ?? 0,
                         MaxValue = spec.MaxValue ?? 0,
-                        Unit = spec.Unit
+                        Unit = spec.Unit,
+                        ProcessName = spec.ProcessName
                     };
 
                     _logger.LogInformation($"Updated specification: {spec.SpecId}");
                     Electron.IpcMain.Send(window, "spec-updated", JsonSerializer.Serialize(specDTO, GetJsonSerializerOptions()));
+                    if (data.SpecName != spec.SpecName)
+                    {
+                        await _historyService.TrackUpdate(
+                            "Specifications",
+                            "SpecName",
+                            spec.SpecId,
+                            spec.SpecName,
+                            data.SpecName);
+                    }
+
+                    if (data.EquipName != spec.EquipName)
+                    {
+                        await _historyService.TrackUpdate(
+                            "Specifications",
+                            "EquipName",
+                            spec.SpecId,
+                            spec.EquipName,
+                            data.EquipName);
+                    }
+
+                    if (data.MinValue != spec.MinValue)
+                    {
+                        await _historyService.TrackUpdate(
+                            "Specifications",
+                            "MinValue",
+                            spec.SpecId,
+                            spec.MinValue.ToString(),
+                            data.MinValue.ToString());
+                    }
+
+                    if (data.MaxValue != spec.MaxValue)
+                    {
+                        await _historyService.TrackUpdate(
+                            "Specifications",
+                            "MaxValue",
+                            spec.SpecId,
+                            spec.MaxValue.ToString(),
+                            data.MaxValue.ToString());
+                    }
+
+                    if (data.Unit != spec.Unit)
+                    {
+                        await _historyService.TrackUpdate(
+                            "Specifications",
+                            "Unit",
+                            spec.SpecId,
+                            spec.Unit,
+                            data.Unit);
+                    }
+
+                    if (data.ProcessName != spec.ProcessName)
+                    {
+                        await _historyService.TrackUpdate(
+                            "Specifications",
+                            "ProcessName",
+                            spec.SpecId,
+                            spec.ProcessName,
+                            data.ProcessName);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -238,6 +309,10 @@ namespace Services
 
                     _logger.LogInformation($"Deleted specification: {specId}");
                     Electron.IpcMain.Send(window, "spec-deleted", JsonSerializer.Serialize(new { success = true, id = specId }));
+                    await _historyService.TrackDelete(
+                        "Specifications", 
+                        specId,
+                        $"Deleted specification: {spec.SpecName} from Model {spec.ModelId}");
                 }
                 catch (Exception ex)
                 {

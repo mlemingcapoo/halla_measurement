@@ -14,13 +14,16 @@ namespace Services
     {
         private readonly ILogger<ModelIPCService> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ActionHistoryService _historyService;
 
         public ModelIPCService(
             ILogger<ModelIPCService> logger,
-            IServiceScopeFactory scopeFactory)
+            IServiceScopeFactory scopeFactory,
+            ActionHistoryService historyService)
         {
             _logger = logger;
             _scopeFactory = scopeFactory;
+            _historyService = historyService;
         }
 
         public void RegisterEvents(BrowserWindow window)
@@ -106,6 +109,10 @@ namespace Services
 
                     _logger.LogInformation($"Created model: {model.ModelId}");
                     Electron.IpcMain.Send(window, "model-created", JsonSerializer.Serialize(modelDTO, GetJsonSerializerOptions()));
+                    await _historyService.TrackCreate(
+                        "Models", 
+                        model.ModelId,
+                        $"Created model: {model.PartNo} - {model.PartName}");
                 }
                 catch (Exception ex)
                 {
@@ -178,15 +185,14 @@ namespace Services
 
                 try
                 {
-                    _logger.LogInformation("⭐ [Server] model-getById called with args: " + args.ToString());
                     var id = JsonSerializer.Deserialize<int>(args.ToString());
+                    _logger.LogInformation($"⭐ [Server] Getting model {id} with documents");
 
                     var model = await context.Models
                         .Include(m => m.Images)
+                        .Include(m => m.Documents)
                         .Include(m => m.Specifications)
                         .FirstOrDefaultAsync(m => m.ModelId == id);
-
-                    _logger.LogInformation($"⭐ [Server] Found model: {model?.PartNo}, Images count: {model?.Images?.Count ?? 0}, Specs count: {model?.Specifications?.Count ?? 0}");
 
                     if (model == null)
                     {
@@ -211,6 +217,15 @@ namespace Services
                             Base64Data = i.Base64Data,
                             ContentType = i.ContentType
                         }).ToList(),
+                        Documents = model.Documents.Select(d => new ModelDocumentDTO
+                        {
+                            DocumentId = d.DocumentId,
+                            ModelId = d.ModelId,
+                            FileName = d.FileName,
+                            OriginalName = d.OriginalName,
+                            FileSize = d.FileSize,
+                            UploadDate = d.UploadDate
+                        }).ToList(),
                         Specifications = model.Specifications.Select(s => new SpecificationDTO
                         {
                             SpecId = s.SpecId,
@@ -222,20 +237,13 @@ namespace Services
                         }).ToList()
                     };
 
-                    _logger.LogInformation($"⭐ [Server] Model DTO created with {modelDTO.Images.Count} images");
-                    foreach (var img in modelDTO.Images)
-                    {
-                        _logger.LogInformation($"⭐ [Server] Image {img.ImageId}: {img.FileName}, Base64 length: {img.Base64Data?.Length ?? 0}");
-                    }
-
-                    var serializedModel = JsonSerializer.Serialize(modelDTO);
-                    _logger.LogInformation($"⭐ [Server] Serialized data length: {serializedModel.Length}");
-
-                    Electron.IpcMain.Send(window, "model-details", serializedModel);
+                    _logger.LogInformation($"⭐ [Server] Model DTO created with {modelDTO.Documents?.Count ?? 0} documents");
+                    
+                    Electron.IpcMain.Send(window, "model-details", JsonSerializer.Serialize(modelDTO));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"⭐ [Server] Error in model-getById: {ex.Message}");
+                    _logger.LogError($"Error getting model: {ex.Message}");
                     Electron.IpcMain.Send(window, "model-error", JsonSerializer.Serialize(new { error = ex.Message }));
                 }
             });
@@ -297,6 +305,42 @@ namespace Services
 
                     _logger.LogInformation($"Updated model: {model.ModelId}");
                     Electron.IpcMain.Send(window, "model-updated", JsonSerializer.Serialize(modelDTO, GetJsonSerializerOptions()));
+                    await _historyService.TrackUpdate(
+                        "Models",
+                        "PartNo",
+                        model.ModelId,
+                        model.PartNo,
+                        data.PartNo);
+                    await _historyService.TrackUpdate(
+                        "Models",
+                        "PartName",
+                        model.ModelId,
+                        model.PartName,
+                        data.PartName);
+                    await _historyService.TrackUpdate(
+                        "Models",
+                        "Material",
+                        model.ModelId,
+                        model.Material,
+                        data.Material);
+                    await _historyService.TrackUpdate(
+                        "Models",
+                        "WO",
+                        model.ModelId,
+                        model.WO,
+                        data.WO);
+                    await _historyService.TrackUpdate(
+                        "Models",
+                        "Machine",
+                        model.ModelId,
+                        model.Machine,
+                        data.Machine);
+                    await _historyService.TrackUpdate(
+                        "Models",
+                        "ProductDate",
+                        model.ModelId,
+                        model.ProductDate.ToString(),
+                        data.ProductDate.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -371,6 +415,10 @@ namespace Services
                             await transaction.CommitAsync();
 
                             _logger.LogInformation($"Deleted model: {id} and all related data");
+                            await _historyService.TrackDelete(
+                                "Models", 
+                                id,
+                                $"Deleted model: {model.PartNo} - {model.PartName}");
                         }
                         catch (Exception ex)
                         {
@@ -492,6 +540,10 @@ namespace Services
 
                     _logger.LogInformation($"Cloned model {modelId} to new model {newModel.ModelId}");
                     Electron.IpcMain.Send(window, "model-cloned", JsonSerializer.Serialize(modelDTO, GetJsonSerializerOptions()));
+                    await _historyService.TrackCreate(
+                        "Models", 
+                        newModel.ModelId,
+                        $"Cloned from model {sourceModel.ModelId}: {newModel.PartNo} - {newModel.PartName}");
                 }
                 catch (Exception ex)
                 {

@@ -75,7 +75,7 @@ namespace Services
                     {
                         // Compress the image before saving
                         byte[] originalImageBytes = Convert.FromBase64String(base64Data);
-                        byte[] compressedImageBytes = CompressImage(originalImageBytes, 800, 30);
+                        byte[] compressedImageBytes = CompressImage(originalImageBytes, 800, 10);
                         string compressedBase64 = Convert.ToBase64String(compressedImageBytes);
 
                         // Log compression results
@@ -233,21 +233,17 @@ namespace Services
 
                     if (image == null)
                     {
-                        throw new Exception($"Image with ID {imageId} not found");
-                    }
-
-                    // Delete physical file if it exists
-                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "models", image.FileName ?? string.Empty);
-                    if (System.IO.File.Exists(filePath))
-                    {
-                        System.IO.File.Delete(filePath);
+                        // Image already deleted, return success
+                        _logger.LogInformation($"Image {imageId} already deleted");
+                        Electron.IpcMain.Send(window, "image-deleted", JsonSerializer.Serialize(new { success = true }));
+                        return;
                     }
 
                     context.ModelImages.Remove(image);
                     await context.SaveChangesAsync();
 
-                    _logger.LogInformation($"Deleted image: {imageId}");
-                    Electron.IpcMain.Send(window, "image-deleted", JsonSerializer.Serialize(new { success = true, id = imageId }));
+                    _logger.LogInformation($"Image {imageId} deleted successfully");
+                    Electron.IpcMain.Send(window, "image-deleted", JsonSerializer.Serialize(new { success = true }));
                 }
                 catch (Exception ex)
                 {

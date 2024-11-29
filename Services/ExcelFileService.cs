@@ -23,6 +23,7 @@ public class ExcelFileService
     private readonly ILogger<ExcelFileService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ApplicationDbContext _context;
+    private int _currentModelId;
 
     public ExcelFileService(ILogger<ExcelFileService> logger, IServiceScopeFactory scopeFactory)
     {
@@ -148,52 +149,85 @@ public class ExcelFileService
         var modelList = new List<FileInfoDto>();
             foreach (var file in _fileList)
             {
-        try
-        {
-                _logger.LogInformation("Reading excel file: {FileName}", file.FileName);
-                var sourcePath = file.FullPath; // Use the full path from the FileInfoDto
-                _logger.LogInformation("FileName: {FileName}, FullPath: {SourcePath}", file.FileName, sourcePath);
-                var destinationPath = Path.Combine(destinationFolder, file.FileName);
-
-                File.Copy(sourcePath, destinationPath, overwrite: true);
-
-                using (var workbook = new XLWorkbook(destinationPath))
+                try
                 {
-                    // Find the worksheet with a name that matches the desired pattern
-                    var worksheet = workbook.Worksheets
-                        .FirstOrDefault(ws => ws.Name.Contains("Dimension DC", StringComparison.OrdinalIgnoreCase));
+                        _logger.LogInformation("Reading excel file: {FileName}", file.FileName);
+                        var sourcePath = file.FullPath; // Use the full path from the FileInfoDto
+                        _logger.LogInformation("FileName: {FileName}, FullPath: {SourcePath}", file.FileName, sourcePath);
+                        var destinationPath = Path.Combine(destinationFolder, file.FileName);
 
-                    if (worksheet == null)
-                    {
-                        _logger.LogInformation($"Không tìm thấy sheet 'Dimension DC' trong file {file.FileName}.");
-                        ExcelFileError?.Invoke(this, $"Không tìm thấy sheet 'Dimension DC' trong file {file.FileName}. Đã bỏ qua file này.");
-                        continue; // Exit the method or skip to the next file
-                    }
-                    _logger.LogInformation($"Tìm thấy sheet 'Dimension DC' trong file {file.FileName}.");
-                    // Example: Get data from specific cells
-                    var data = worksheet.Cell("A1").GetValue<string>(); // Example of cell address
-                    var anotherData = worksheet.Cell("E1").GetValue<string>();
-                    _logger.LogInformation("Data from A1: {Data}, Data from E1: {AnotherData}", data, anotherData);
-                    if (GetDataAndInsertToDatabase(worksheet, file.FullPath))
-                    {
-                        ExcelFileSuccess?.Invoke(this, $"Import dữ liệu thành công cho model {file.PartNo}");
-                    } else {
-                        ExcelFileError?.Invoke(this, $"File bị lỗi: {file.PartNo}");
-                    }
+                        File.Copy(sourcePath, destinationPath, overwrite: true);
+
+                        using (var workbook = new XLWorkbook(destinationPath))
+                        {
+                            // Find the worksheet with a name that matches the desired pattern
+                            var worksheet = workbook.Worksheets
+                                .FirstOrDefault(ws => ws.Name.Contains("Dimension DC", StringComparison.OrdinalIgnoreCase));
+                            
+                            if (worksheet == null)
+                            {
+                                _logger.LogInformation($"Không tìm thấy sheet 'Dimension DC' trong file {file.FileName}.");
+                                ExcelFileError?.Invoke(this, $"Không tìm thấy sheet 'Dimension DC' trong file {file.FileName}. Đã bỏ qua file này.");
+                                continue; // Exit the method or skip to the next file
+                            }
+                            _logger.LogInformation($"Tìm thấy sheet 'Dimension DC' trong file {file.FileName}.");
+
+                            // get and create model data first
+                            if (!GetModelDataAndInsertToDatabase(worksheet, file.FullPath))
+                            {
+                                continue;
+                            } 
+
+                            // Example: Get data from specific cells
+                            var data = worksheet.Cell("A1").GetValue<string>(); // Example of cell address
+                            var anotherData = worksheet.Cell("E1").GetValue<string>();
+                            _logger.LogInformation("Data from A1: {Data}, Data from E1: {AnotherData}", data, anotherData);
+
+
+                            // get data from DC sheet
+                            if (GetDataAndInsertToDatabaseDC(worksheet, file.FullPath))
+                            {
+                                ExcelFileSuccess?.Invoke(this, $"Import dữ liệu DC thành công cho model {file.PartNo}");
+                            } else {
+                                ExcelFileError?.Invoke(this, $"File bị lỗi: {file.PartNo}");
+                            }
+
+                            // CNC reading 
+                            var cncWorksheet = workbook.Worksheets
+                                .FirstOrDefault(ws => ws.Name.Contains("Dimension CNC", StringComparison.OrdinalIgnoreCase));
+                            if (cncWorksheet == null)
+                            {
+                                _logger.LogInformation($"Không tìm thấy sheet 'CNC' trong file {file.FileName}.");
+                                ExcelFileError?.Invoke(this, $"Không tìm thấy sheet 'CNC' trong file {file.FileName}. Đã bỏ qua file này.");
+                                continue; // Exit the method or skip to the next file
+                            }
+                            _logger.LogInformation($"Tìm thấy sheet 'CNC' trong file {file.FileName}.");
+                            // get data from CNC sheet
+                            if (GetDataAndInsertToDatabaseCNC(cncWorksheet, file.FullPath))
+                            {
+                                ExcelFileSuccess?.Invoke(this, $"Import dữ liệu CNC thành công cho model {file.PartNo}");
+                            } else {
+                                ExcelFileError?.Invoke(this, $"File bị lỗi: {file.PartNo}");
+                            }
+                        }
                 }
-        }
-        catch (System.Exception ex)
-        {
-            _logger.LogError(ex, "Error importing data from Excel files.");
-            ExcelFileError?.Invoke(this, $"File bị lỗi: {file.PartNo}");
-            continue;
-        }
+                catch (System.Exception ex)
+                {
+                    _logger.LogError(ex, "Error importing data from Excel files.");
+                    ExcelFileError?.Invoke(this, $"File bị lỗi: {file.PartNo}");
+                    continue;
+                }
             }
 
         // Save `modelList` to your database
         // SaveToDatabase(modelList);
 
         return true;
+    }
+
+    private void ImportDCData()
+    {
+        
     }
 
     private (double? min, double? max, string unit) ParseMeasurement(string input)
@@ -302,42 +336,55 @@ public class ExcelFileService
     var result4 = ParseToleranceFormat("Invalid format");           // returns (null, null, "mm")
     */
 
-    private bool GetDataAndInsertToDatabase(IXLWorksheet worksheet, string filePath)
+    private bool GetDataAndInsertToDatabaseCNC(IXLWorksheet worksheet, string filePath)
+    {
+        return GetSpecDataAndInsertToDatabase(worksheet, filePath, "CNC");
+    }
+
+    private bool GetDataAndInsertToDatabaseDC(IXLWorksheet worksheet, string filePath)
+    {
+        return GetSpecDataAndInsertToDatabase(worksheet, filePath, "DC");
+    }
+
+    private bool GetSpecDataAndInsertToDatabase(IXLWorksheet worksheet, string filePath, string _processName)
     {
         try 
         {
             // Get existing data with default values if null
-            var partNo = worksheet.Cell("F4").GetValue<string>() ?? "UNKNOWN";
-            var partName = worksheet.Cell("F3").GetValue<string>() ?? "UNKNOWN";
-            var material = worksheet.Cell("C4").GetValue<string>() ?? "";
+            // var minMaxValueString = GetCellValue(worksheet, "D", row) ?? "";
+            // var partNo = worksheet.Cell("F4").GetValue<string>() ?? "UNKNOWN";
+            var partNo = GetCellValue(worksheet, "F", 4);
+            // var partName = worksheet.Cell("F3").GetValue<string>() ?? "UNKNOWN";
+            // var material = worksheet.Cell("C4").GetValue<string>() ?? "";
 
             // Get the workbook file path
             var workbookPath = filePath;
             
             // Check if model exists
             var model = _context.Models.FirstOrDefault(m => m.PartNo == partNo);
-            if (model == null)
+            if (model != null)
             {
-                // Create new model with images and default values
-                var newModel = new Models.Model
-                {
-                    PartNo = partNo,
-                    PartName = partName,
-                    Material = material,
-                    CreatedAt = DateTime.Now,
-                    ProductDate = DateTime.Now, // Default to today
-                    WO = "DEFAULT",            // Default WO
-                    Machine = "DEFAULT"         // Default Machine
-                };
+            //     // Create new model with images and default values
+            //     var newModel = new Models.Model
+            //     {
+            //         PartNo = partNo,
+            //         PartName = partName,
+            //         Material = material,
+            //         CreatedAt = DateTime.Now,
+            //         ProductDate = DateTime.Now, // Default to today
+            //         WO = "DEFAULT",            // Default WO
+            //         Machine = "DEFAULT"         // Default Machine
+            //     };
                 
-                _logger.LogInformation("Creating new model: {NewModel}", JsonSerializer.Serialize(newModel));
-                _context.Models.Add(newModel);
+            //     _logger.LogInformation("Creating new model: {NewModel}", JsonSerializer.Serialize(newModel));
+            //     _context.Models.Add(newModel);
                 
-                _context.SaveChanges();
+            //     _context.SaveChanges();
 
                 // get the created model id
-                var createdModelId = newModel.ModelId;
-                _logger.LogInformation("Created model id: {CreatedModelId}", createdModelId);
+                // var createdModelId = newModel.ModelId;
+                var createdModelId = model.ModelId;
+                _logger.LogInformation("Using created model id: {CreatedModelId}", createdModelId);
 
                 // read specs
                 var specs = new List<Models.ModelSpecification>();
@@ -345,7 +392,7 @@ public class ExcelFileService
                 var maxRow = int.Parse(maxRowString);
                 LogToFile($"Found last row with number in column A: {maxRow}");
 
-                for (int row = 12; row <= 40; row++)
+                for (int row = 12; row <= 120; row++)
                 {
                     var minMaxValueString = GetCellValue(worksheet, "D", row) ?? "";
                     if (minMaxValueString.Contains("Time"))
@@ -354,7 +401,7 @@ public class ExcelFileService
                     }
                     var (minValue, maxValue, unit) = ParseMeasurement(minMaxValueString);
                     var specNameString = GetCellValue(worksheet, "B", row) ?? "";
-                    if (specNameString.Contains("Kết quả") || specNameString.Contains("Ký xác nhận") || specNameString.Contains("kết quả") || specNameString.Contains("ký xác nhận"))
+                    if (specNameString.Contains("Ghi chú:") || specNameString.Contains("Ghi chú") || specNameString.Contains("ghi chú") || specNameString.Contains("ghi chú:"))
                     {
                         break;
                     }
@@ -389,7 +436,8 @@ public class ExcelFileService
                         EquipName = string.IsNullOrEmpty(equipNameString) ? "UNKNOWN" : equipNameString,
                         MinValue = minValue,
                         MaxValue = maxValue,
-                        Unit = unit
+                        Unit = unit,
+                        ProcessName = _processName
                     });
                 }
 
@@ -429,6 +477,61 @@ public class ExcelFileService
                 // }
                 // LogToFile($"Summary model created with {images.Count} images: {JsonSerializer.Serialize(newModel)}");
                 ExcelFileSuccess?.Invoke(this, $"Model {partNo} đã được import thành công");
+                return true;
+            } 
+            else 
+            {
+                _logger.LogWarning($"Model with PartNo {partNo} already exists");
+                ExcelFileError?.Invoke(this, $"Model với PartNo {partNo} đã tồn tại");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetDataAndInsertToDatabase");
+            ExcelFileError?.Invoke(this, "Có lỗi xảy ra khi xử lý dữ liệu Excel.");
+            return false;
+        }
+    }
+    
+    private bool GetModelDataAndInsertToDatabase(IXLWorksheet worksheet, string filePath )
+    {
+        try 
+        {
+            // Get existing data with default values if null
+            // var partNo = worksheet.Cell("F4").GetValue<string>() ?? "UNKNOWN";
+            var partNo = GetCellValue(worksheet, "F", 4);
+            var partName = worksheet.Cell("F3").GetValue<string>() ?? "UNKNOWN";
+            var material = worksheet.Cell("C4").GetValue<string>() ?? "";
+
+            // Get the workbook file path
+            var workbookPath = filePath;
+            
+            // Check if model exists
+            var model = _context.Models.FirstOrDefault(m => m.PartNo == partNo);
+            if (model == null)
+            {
+                // Create new model with images and default values
+                var newModel = new Models.Model
+                {
+                    PartNo = partNo,
+                    PartName = partName,
+                    Material = material,
+                    CreatedAt = DateTime.Now,
+                    ProductDate = DateTime.Now, // Default to today
+                    WO = "DEFAULT",            // Default WO
+                    Machine = "DEFAULT"         // Default Machine
+                };
+                
+                _logger.LogInformation("Creating new model: {NewModel}", JsonSerializer.Serialize(newModel));
+                _context.Models.Add(newModel);
+                
+                _context.SaveChanges();
+
+                // get the created model id
+                var createdModelId = newModel.ModelId;
+                _logger.LogInformation("Created model id: {CreatedModelId}", createdModelId);
+
                 return true;
             } 
             else 
@@ -488,7 +591,7 @@ public class ExcelFileService
                                 byte[] originalImageBytes = memoryStream.ToArray();
 
                                 // Compress the image
-                                byte[] compressedImageBytes = CompressImage(originalImageBytes, 800, 30);
+                                byte[] compressedImageBytes = CompressImage(originalImageBytes, 800, 10);
                                 
                                 string base64String = Convert.ToBase64String(compressedImageBytes);
                                 string contentType = "image/jpeg"; // We're converting all images to JPEG

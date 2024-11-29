@@ -53,10 +53,12 @@ namespace halla_measurement_1.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("UserName")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("ActionHistoryId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("ActionHistories");
                 });
@@ -154,6 +156,40 @@ namespace halla_measurement_1.Migrations
                     b.ToTable("Models");
                 });
 
+            modelBuilder.Entity("Models.ModelDocument", b =>
+                {
+                    b.Property<int>("DocumentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DocumentId"), 1L, 1);
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ModelId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OriginalName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("UploadDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("DocumentId");
+
+                    b.HasIndex("ModelId");
+
+                    b.ToTable("ModelDocuments");
+                });
+
             modelBuilder.Entity("Models.ModelImage", b =>
                 {
                     b.Property<int>("ImageId")
@@ -205,6 +241,10 @@ namespace halla_measurement_1.Migrations
                     b.Property<int>("ModelId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ProcessName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("SpecName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -248,6 +288,67 @@ namespace halla_measurement_1.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("Models.User", b =>
+                {
+                    b.Property<int>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Password")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("RoleType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = 1,
+                            CreatedAt = new DateTime(2024, 11, 28, 11, 4, 29, 957, DateTimeKind.Utc).AddTicks(9640),
+                            FullName = "Administrator",
+                            IsActive = true,
+                            Password = "admin123",
+                            RoleType = 0,
+                            Username = "admin"
+                        });
+                });
+
+            modelBuilder.Entity("Models.ActionHistory", b =>
+                {
+                    b.HasOne("Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Models.Measurement", b =>
                 {
                     b.HasOne("Models.Product", "Product")
@@ -264,6 +365,17 @@ namespace halla_measurement_1.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Specification");
+                });
+
+            modelBuilder.Entity("Models.ModelDocument", b =>
+                {
+                    b.HasOne("Models.Model", "Model")
+                        .WithMany("Documents")
+                        .HasForeignKey("ModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Model");
                 });
 
             modelBuilder.Entity("Models.ModelImage", b =>
@@ -301,6 +413,8 @@ namespace halla_measurement_1.Migrations
 
             modelBuilder.Entity("Models.Model", b =>
                 {
+                    b.Navigation("Documents");
+
                     b.Navigation("Images");
 
                     b.Navigation("Products");

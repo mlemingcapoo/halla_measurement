@@ -63,20 +63,63 @@ namespace Services
                 }
 
                 using var workbook = new XLWorkbook(templatePath);
-                var worksheet = workbook.Worksheet(1);
+                
+                // Get both worksheets
+                var dcWorksheet = workbook.Worksheet(1); // First sheet for DC process
+                var cncWorksheet = workbook.Worksheet(2); // Second sheet for CNC process
 
-                // Fill header information
-                FillHeaderInformation(worksheet, data);
-                FillSpecificationData(worksheet, data ?? new SpecificationData());
+                // Filter specifications by process
+                var dcSpecs = data.Measurements.Where(m => m.ProcessName == "DC").ToList();
+                var cncSpecs = data.Measurements.Where(m => m.ProcessName == "CNC").ToList();
 
-                // Fill measurement data
-                FillMeasurementData(worksheet, products);
+                // Fill header information for both sheets
+                FillHeaderInformation(dcWorksheet, data);
+                FillHeaderInformation(cncWorksheet, data);
+
+                // Fill specification data for each process
+                FillSpecificationData(dcWorksheet, new SpecificationData 
+                { 
+                    Customer = data.Customer,
+                    PartName = data.PartName,
+                    PartNo = data.PartNo,
+                    Material = data.Material,
+                    ProductionDate = data.ProductionDate,
+                    WorkOrder = data.WorkOrder,
+                    Process = data.Process,
+                    MachineName = data.MachineName,
+                    InspectorA = data.InspectorA,
+                    InspectorB = data.InspectorB,
+                    CheckedBy = data.CheckedBy,
+                    ApprovedBy = data.ApprovedBy,
+                    MoldNumber = data.MoldNumber,
+                    Measurements = dcSpecs
+                });
+                FillSpecificationData(cncWorksheet, new SpecificationData
+                { 
+                    Customer = data.Customer,
+                    PartName = data.PartName,
+                    PartNo = data.PartNo,
+                    Material = data.Material,
+                    ProductionDate = data.ProductionDate,
+                    WorkOrder = data.WorkOrder,
+                    Process = data.Process,
+                    MachineName = data.MachineName,
+                    InspectorA = data.InspectorA,
+                    InspectorB = data.InspectorB,
+                    CheckedBy = data.CheckedBy,
+                    ApprovedBy = data.ApprovedBy,
+                    MoldNumber = data.MoldNumber,
+                    Measurements = cncSpecs
+                }, 10);
+
+                // Fill measurement data for each process
+                FillMeasurementData(dcWorksheet, products, "DC");
+                FillMeasurementData(cncWorksheet, products, "CNC");
 
                 // Save to temp file
                 var outputFileName = $"measurement_report_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
                 var outputPath = Path.Combine(_templatePath, "output", outputFileName);
 
-                // Create directory if it doesn't exist
                 Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? "");
 
                 workbook.SaveAs(outputPath);
@@ -118,7 +161,7 @@ namespace Services
             worksheet.Cell(DimenstionDC.MOLD).Value = $"Mold (khuôn): {data.MoldNumber}";
         }
 
-        private void FillSpecificationData(IXLWorksheet worksheet, SpecificationData data)
+        private void FillSpecificationData(IXLWorksheet worksheet, SpecificationData data, int fontSize = 18)
         {
             int currentRow = DimenstionDC.DATA_START_ROW; // Starts at row 12
 
@@ -135,66 +178,41 @@ namespace Services
                 worksheet.Cell($"E{currentRow + i}").Value = measurement.EquipName;  // Equipment
 
                 // Apply formatting
-                worksheet.Range($"A{currentRow + i}:E{currentRow + i}").Style
+                worksheet.Range($"A{currentRow + i}:E{currentRow + i + 1}").Style
                     .Border.SetOutsideBorder(XLBorderStyleValues.Thin)
-                    .Font.SetFontSize(18);
+                    .Font.SetFontSize(fontSize);
             }
+
+            // set font size of cells from G12 to I37 to 18 
+            worksheet.Range($"G{DimenstionDC.DATA_START_ROW}:I{DimenstionDC.DATA_START_ROW + data.Measurements.Count}").Style
+                .Font.SetFontSize(18);
         }
 
-        private void FillMeasurementData(IXLWorksheet worksheet, List<Product> products)
+        private void FillMeasurementData(IXLWorksheet worksheet, List<Product> products, string processName)
         {
             try
             {
-                const int START_ROW = 12;  // Starting row for data
-                // START column: G
+                const int START_ROW = 12;
                 const int START_COLUMN = 7;
-                const int HEADER_ROW = 11; // Row for headers
 
-                // Get specifications from the first product's model
+                // Get specifications for the current process only
                 var specs = products
                     .FirstOrDefault()
                     ?.Model
                     ?.Specifications
+                    ?.Where(s => s.ProcessName == processName)
                     ?.OrderBy(s => s.SpecName)
                     .ToList() ?? new List<ModelSpecification>();
 
-                // _logger.LogInformation("Processing measurements for {count} products with {specCount} specifications",
-                //     products.Count, specs.Count);
-
-                // // Write headers
-                // worksheet.Cell($"A{HEADER_ROW}").Value = "STT";
-                // worksheet.Cell($"B{HEADER_ROW}").Value = "Mold Number";
-                // worksheet.Cell($"C{HEADER_ROW}").Value = "Time";
-
-                // // Write specification headers
-                // for (int i = 0; i < specs.Count; i++)
-                // {
-                //     var spec = specs[i];
-                //     worksheet.Cell(HEADER_ROW, i + 4).Value = $"{spec.SpecName} ({spec.Unit})"; // +4 because we start after STT, Mold, Time
-                // }
-
-                // // Style headers
-                // var headerRange = worksheet.Range(HEADER_ROW, 1, HEADER_ROW, specs.Count + 3);
-                // headerRange.Style
-                //     .Font.SetBold(true)
-                //     .Font.SetFontSize(12)
-                //     .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                //     .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
-
-                // Fill data rows
                 if (products.Any())
                 {
                     for (int productIndex = 0; productIndex < products.Count; productIndex++) 
                     {
-                        _logger.LogInformation("Processing product {productIndex}", productIndex);
-                        _logger.LogInformation("Processing product time {productTime}", products[productIndex].MeasurementDate.ToLocalTime());
-                        var product = products[productIndex];
+                        _logger.LogInformation("Processing product {productIndex} for process {processName}", 
+                            productIndex, processName);
                         
-                        // Calculate column with 2x spacing to account for merged cells
+                        var product = products[productIndex];
                         int currentColumn = START_COLUMN + (productIndex * 2);
-
-                        // Write product header (mold number and date)
-                        // worksheet.Cell(HEADER_ROW, currentColumn).Value = $"{product.MeasurementDate.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
 
                         for (int specIndex = 0; specIndex < specs.Count; specIndex++)
                         {
@@ -209,15 +227,6 @@ namespace Services
                             if (measurement != null)
                             {
                                 cell.Value = Math.Round(measurement.MeasuredValue, 2);
-
-                                bool isWithinRange = measurement.MeasuredValue >= spec.MinValue && 
-                                    measurement.MeasuredValue <= spec.MaxValue;
-
-                                // cell.Style
-                                //     .Fill.SetBackgroundColor(isWithinRange ? 
-                                //         XLColor.FromHtml("#BBF7D0") : XLColor.FromHtml("#FECACA"))
-                                //     .Font.SetFontColor(isWithinRange ? 
-                                //         XLColor.FromHtml("#14532D") : XLColor.FromHtml("#7F1D1D"));
                             }
                             else
                             {
@@ -225,71 +234,14 @@ namespace Services
                             }
                         }
                     }
-                    // for (int rowIndex = 0; rowIndex < products.Count; rowIndex++)
-                    // {
-                    //     var product = products[rowIndex];
-                    //     int currentRow = START_ROW + rowIndex;
-
-                    //     // Fill basic product info
-                    //     // worksheet.Cell(currentRow, 1).Value = rowIndex + 1; // STT
-                    //     // worksheet.Cell(currentRow, 2).Value = product.MoldNumber ?? "--";
-                    //     // worksheet.Cell(currentRow, 3).Value = product.MeasurementDate.ToLocalTime().ToString("g");
-
-                    //     // Fill measurements
-                    //     for (int specIndex = 0; specIndex < specs.Count; specIndex++)
-                    //     {
-                    //         var spec = specs[specIndex];
-                    //         var measurement = product.Measurements?
-                    //             .FirstOrDefault(m => m.SpecId == spec.SpecId);
-
-                    //         var cell = worksheet.Cell(currentRow, specIndex + 4); // +4 because we start after STT, Mold, Time
-
-                    //         if (measurement != null)
-                    //         {
-                    //             cell.Value = Math.Round(measurement.MeasuredValue, 2);
-
-                    //             // Apply conditional formatting (like in-range/out-of-range in the table)
-                    //             bool isWithinRange = measurement.MeasuredValue >= spec.MinValue && 
-                    //                 measurement.MeasuredValue <= spec.MaxValue;
-
-                    //             cell.Style
-                    //                 .Fill.SetBackgroundColor(isWithinRange ? 
-                    //                     XLColor.FromHtml("#BBF7D0") : XLColor.FromHtml("#FECACA"))
-                    //                 .Font.SetFontColor(isWithinRange ? 
-                    //                     XLColor.FromHtml("#14532D") : XLColor.FromHtml("#7F1D1D"));
-                    //         }
-                    //         else
-                    //         {
-                    //             cell.Value = "--";
-                    //         }
-                    //     }
-
-                    //     // Style the entire row
-                    //     worksheet.Range(currentRow, 1, currentRow, specs.Count + 3).Style
-                    //         .Border.SetOutsideBorder(XLBorderStyleValues.Thin)
-                    //         .Font.SetFontSize(18)
-                    //         .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-                    // }
-                }
-                else
-                {
-                    // If no products, add a "No data" message
-                    // worksheet.Range(START_ROW, 1, START_ROW, specs.Count + 3).Merge();
-                    // worksheet.Cell(START_ROW, 1).Value = "No measurement data available for this model";
-                    // worksheet.Cell(START_ROW, 1).Style
-                    //     .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                    //     .Font.SetItalic(true)
-                    //     .Font.SetFontColor(XLColor.Gray);
                 }
 
-                // Auto-fit columns
-                // worksheet.Columns().AdjustToContents();
-
-                _logger.LogInformation("Successfully filled measurement data table");
+                _logger.LogInformation("Successfully filled measurement data for process {processName}", 
+                    processName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error filling measurement data");
+                _logger.LogError(ex, "Error filling measurement data for process {processName}", processName);
                 throw;
             }
         }
@@ -333,6 +285,7 @@ namespace Services
         public double MaxValue { get; set; }
         public string? EquipName { get; set; }
         public List<MoldValue>? MoldValues { get; set; }
+        public string ProcessName { get; set; } = string.Empty;
     }
 
     public class MoldValue

@@ -58,34 +58,30 @@ $('#modelSelect').on('change', async function () {
 //     location.reload();
 // });
 
-async function loadProductMeasurements(modelId, products = null) {
-    // console.log('=== START MEASUREMENT LOADING ===');
-    // console.log('Refreshing measurements for ModelId:', modelId);
-    
+async function loadProductMeasurements(modelId, products = null, processName = null) {
     const tableContainer = document.getElementById('measurements-table');
     tableContainer.style.transition = 'opacity 0.2s';
     tableContainer.style.opacity = '0.5';
 
     if (!modelId) {
-        // console.log('No model ID provided, skipping refresh');
         return;
     }
 
     try {
         // Get model specifications
-        // console.log('1. Fetching specifications...');
-        const specs = await ModelSpecificationService.getSpecifications(modelId);
-        // console.log('1.1 Specifications received:', specs);
+        const allSpecs = await ModelSpecificationService.getSpecifications(modelId);
+        
+        // Filter specs by process if specified
+        const specs = processName && processName !== 'ALL'
+            ? allSpecs.filter(spec => spec.ProcessName === processName)
+            : allSpecs;
 
         // If products weren't passed, fetch them
         if (!products) {
-            // console.log('2. Fetching products...');
             products = await ProductService.getProductsByModelId(modelId);
         }
-        // console.log('2.1 Products received:', products);
 
         // Building table HTML
-        // console.log('3. Building table HTML...');
         let tableHTML = `
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -94,7 +90,7 @@ async function loadProductMeasurements(modelId, products = null) {
                         <th class="px-2 py-3 text-center text-xs font-medium text-gray-900 uppercase tracking-wider" style="width: 100px;">Mold</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">Time</th>`;
 
-        // Add spec headers
+        // Add spec headers - only for filtered specs
         specs.forEach(spec => {
             tableHTML += `
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
@@ -111,11 +107,18 @@ async function loadProductMeasurements(modelId, products = null) {
 
         // Add rows
         if (products && products.length > 0) {
-            // console.log('4. Processing measurements...');
             products.forEach((product, index) => {
-                // console.log(`4.1 Processing product ${index + 1}:`, product);
                 const measurements = product.Measurements || [];
-                // console.log(`4.2 Measurements for product ${index + 1}:`, measurements);
+
+                // Check if all measurements for this product are empty
+                const hasAnyMeasurement = specs.some(spec => 
+                    measurements.some(m => m.SpecId === spec.SpecId)
+                );
+
+                // Skip this row if all measurements are empty
+                if (!hasAnyMeasurement) {
+                    return; // Skip to next product
+                }
 
                 tableHTML += `<tr>
                     <td class="px-2 py-4 whitespace-nowrap text-sm text-center text-gray-900" style="width: 10px;">${index + 1}</td>
@@ -124,7 +127,7 @@ async function loadProductMeasurements(modelId, products = null) {
                         ${new Date(product.MeasurementDate + 'Z').toLocaleString() || '--'}
                     </td>`;
 
-                // Add measurement values
+                // Add measurement values - only for filtered specs
                 specs.forEach(spec => {
                     const measurement = measurements.find(m => m.SpecId === spec.SpecId);
                     const value = measurement ? measurement.Value.toFixed(2) : '--';
@@ -136,13 +139,23 @@ async function loadProductMeasurements(modelId, products = null) {
                     const textColorClass = isWithinRange ? 'text-green-900' : 'text-red-900';
 
                     tableHTML += `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${bgColorClass} ${textColorClass}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${measurement ? `${bgColorClass} ${textColorClass}` : ''}">
                             ${value}
                         </td>`;
                 });
 
                 tableHTML += `</tr>`;
             });
+
+            // If no rows were added after filtering (all products had empty measurements)
+            if (!tableHTML.includes('</tr>')) {
+                tableHTML += `
+                    <tr>
+                        <td colspan="${3 + specs.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                            No measurement data available
+                        </td>
+                    </tr>`;
+            }
         } else {
             tableHTML += `
                 <tr>
@@ -157,12 +170,9 @@ async function loadProductMeasurements(modelId, products = null) {
         // Set the table HTML
         tableContainer.innerHTML = tableHTML;
         tableContainer.style.opacity = '1';
-        
-        // console.log('=== END MEASUREMENT LOADING ===');
 
     } catch (error) {
-        console.error('=== ERROR IN MEASUREMENT LOADING ===');
-        console.error('Error details:', error);
+        console.error('Error loading measurements:', error);
         tableContainer.innerHTML = `
             <div class="text-red-600 p-4">Error loading measurements: ${error.message}</div>
         `;
@@ -208,7 +218,7 @@ async function refreshMeasurementsTable() {
             await loadProductMeasurements(modelId, filteredProducts);
         }
     } catch (error) {
-        console.error('❌ Error refreshing measurements:', error);
+        console.error(' Error refreshing measurements:', error);
         showToast('Error refreshing data: ' + error.message, 'error');
         
         const tableContainer = document.getElementById('measurements-table');
@@ -386,8 +396,18 @@ async function initializeServices() {
 
 // Update the openModal function
 async function openModal(modalId, title, size = 'max-w-lg') {
-    // console.log('Opening modal with ID:', modalId);
+    console.log('🔒 Checking authentication for modal:', modalId);
+    
+    // Check if modal requires authentication
+    const protectedModals = ['measurement'];
+    if (protectedModals.includes(modalId) && !AuthService.isAuthenticated()) {
+        console.log('🚫 Authentication required for modal:', modalId);
+        LoginHandler.showLoginModal();
+        return;
+    }
 
+    console.log('🔓 Opening modal:', modalId);
+    
     // Initialize services if needed
     if (modalId === 'measurement' && !window.services.initialized) {
         await initializeServices();
@@ -457,10 +477,11 @@ function closeModal() {
 function updateClock() {
     requestAnimationFrame(() => {
         const now = new Date();
-        const timeString = now.toLocaleTimeString();
-        document.getElementById('clock').textContent = timeString;
+        $('#clocktime').text(now.toLocaleTimeString());
+        $('#datetime').text(now.toLocaleDateString());
     });
 }
+
 function updateTotalProducts() {
     // Get all products without model filter
     ProductService.getAllProducts()
@@ -481,12 +502,11 @@ updateClock();
 updateTotalProducts();
 
 document.querySelectorAll('button[data-modal]').forEach(button => {
-    button.addEventListener('click', (e) => {
-        // console.log('Modal button clicked:', button.getAttribute('data-modal'));
+    button.addEventListener('click', async (e) => {
+        console.log('🔘 Modal button clicked:', button.getAttribute('data-modal'));
         if (button.getAttribute('onclick') === 'closeModal()') return;
 
         const modalId = button.getAttribute('data-modal');
-        // console.log('Opening modal:', modalId);
 
         const modalSizes = {
             'home': 'max-w-7xl',
@@ -497,7 +517,7 @@ document.querySelectorAll('button[data-modal]').forEach(button => {
             'measurement': 'max-w-8xl',
         };
 
-        openModal(modalId, button.textContent.trim(), modalSizes[modalId] || 'max-w-lg');
+        await openModal(modalId, button.textContent.trim(), modalSizes[modalId] || 'max-w-lg');
     });
 });
 // document.addEventListener('DOMContentLoaded', initializeModelSelect);
@@ -653,7 +673,7 @@ async function loadMoldsForModel(modelId) {
         $moldSelect.select2({
             placeholder: 'Select Mold',
             allowClear: true,
-            width: '100%',
+            width: '80px !important',
             minimumResultsForSearch: -1,
             templateResult: function(data) {
                 if (!data.id) { // This is the "All Molds" option
@@ -686,6 +706,12 @@ $('#modelSelect').on('change', async function() {
         saveSelectedModel(modelId);
         await loadMoldsForModel(modelId);
         await updateModelDetails(modelId);
+        
+        // Reset process select to 'DC' instead of 'ALL'
+        setTimeout(() => {
+            $('#processSelect').val('DC').trigger('change');
+        }, 100);
+        
         await refreshMeasurementsTable();
     } catch (error) {
         console.error('Error handling model change:', error);
@@ -696,15 +722,15 @@ $('#modelSelect').on('change', async function() {
 // Add mold change handler
 $('#moldSelect').on('change', async function() {
     const modelId = $('#modelSelect').val();
-    const moldNumber = $(this).val(); // Get the selected mold number
+    const moldNumber = $(this).val();
+    const processName = $('#processSelect').val();
 
     if (modelId) {
-        // If "All Molds" is selected, moldNumber will be an empty string
         const products = moldNumber 
             ? await ProductService.getProductsByModelAndMold(modelId, moldNumber)
-            : await ProductService.getProductsByModelId(modelId); // Fetch all products for the model
+            : await ProductService.getProductsByModelId(modelId);
 
-        await loadProductMeasurements(modelId, products);
+        await loadProductMeasurements(modelId, products, processName);
     }
 });
 
@@ -726,7 +752,7 @@ async function refreshMeasurementsTable() {
 $(document).ready(function() {
     $('#modelSelect').select2();
     $('#moldSelect').select2();
-
+    initializeProcessSelect();
 
     ModelService.getAllModels().then(async models => {
         const select = $('#modelSelect');
@@ -809,7 +835,7 @@ async function loadMoldsForModel(modelId) {
         $moldSelect.select2({
             placeholder: 'Select Mold',
             allowClear: true,
-            width: '100%',
+            width: '80px !important',
             minimumResultsForSearch: -1,
             templateResult: function(data) {
                 if (!data.id) { // This is the "All Molds" option
@@ -830,5 +856,69 @@ async function loadMoldsForModel(modelId) {
             message: error.message,
             stack: error.stack
         });
+    }
+}
+// Add this function after loadMoldsForModel
+function initializeProcessSelect() {
+    const $processSelect = $('#processSelect');
+    $processSelect.empty();
+    
+    // Add only CNC and DC options
+    const processes = ['CNC', 'DC'];
+    processes.forEach(process => {
+        $processSelect.append(new Option(process, process));
+    });
+
+    // Select DC by default
+    $processSelect.val('DC').trigger('change');
+
+    // Initialize Select2
+    $processSelect.select2({
+        placeholder: 'Select Process',
+        allowClear: false,
+        width: '80px !important',
+        minimumResultsForSearch: -1,
+        templateResult: function(data) {
+            return $('<span>' + data.text + '</span>');
+        },
+        templateSelection: function(data) {
+            return $('<span>' + data.text + '</span>');
+        }
+    });
+}
+
+// Add process change handler
+$('#processSelect').on('change', async function() {
+    const modelId = $('#modelSelect').val();
+    const moldNumber = $('#moldSelect').val();
+    const processName = $(this).val();
+
+    if (modelId) {
+        let products;
+        if (moldNumber) {
+            products = await ProductService.getProductsByModelAndMold(modelId, moldNumber);
+        } else {
+            products = await ProductService.getProductsByModelId(modelId);
+        }
+        
+        await loadProductMeasurements(modelId, products, processName);
+    }
+});
+
+// Update refreshMeasurementsTable to include process filter
+async function refreshMeasurementsTable() {
+    const modelId = $('#modelSelect').val();
+    const moldNumber = $('#moldSelect').val();
+    const processName = $('#processSelect').val();
+    
+    if (modelId) {
+        initEmptyChart();
+        let products;
+        if (moldNumber) {
+            products = await ProductService.getProductsByModelAndMold(modelId, moldNumber);
+        } else {
+            products = await ProductService.getProductsByModelId(modelId);
+        }
+        await loadProductMeasurements(modelId, products, processName);
     }
 }

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Transformation Task</title>
     <link href="./css/output.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/PopupUtil.js"></script>
     <script src="./js/model-service.js"></script>
     <script src="./js/model-spec-service.js"></script>
     <script src="./js/product-service.js"></script>
@@ -257,6 +259,34 @@
             position: relative;
             z-index: 0;
         }
+
+        .select2-container {
+            width: 150px !important;
+            min-width: 150px !important;
+        }
+
+        .select2-container--default .select2-selection--single {
+            width: 160px !important;
+            min-width: 160px !important;
+            height: 38px !important;
+            padding: 4px 8px !important;
+            font-size: 0.875rem !important;
+            font-weight: 500 !important;
+            border-color: #e5e7eb !important;
+            border-radius: 0.5rem !important;
+            background-color: white !important;
+        }
+
+        input[type="datetime-local"] {
+            font-size: 11px;
+            padding: 4px 8px;
+            height: 28px;
+        }
+
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            scale: 0.7;
+            margin-left: -6px;
+        }
     </style>
 </head>
 
@@ -268,9 +298,23 @@
             <span class="text-gray-900 font-semibold text-lg">HALLA ELECTRONICS VINA</span>
         </div>
         <h1 class="text-2xl font-bold text-orange-600">Digital Transformation Task</h1>
-        <div class="text-gray-800 font-mono">
-            <span id="clock" class="text-lg">13:33:30</span>
-            <div class="text-sm">23/07/2024</div>
+        <div class="flex items-center space-x-4">
+            <!-- User info and logout button (initially hidden) -->
+            <div id="userInfo" class="hidden flex items-center space-x-3">
+                <div class="text-gray-700">
+                    <span id="userName" class="font-medium"></span>
+                    <div id="userRole" class="text-sm text-gray-500"></div>
+                </div>
+                <button onclick="AuthService.logout()" 
+                        class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm">
+                    Đăng xuất
+                </button>
+            </div>
+            <!-- Clock -->
+            <div class="text-gray-800 font-mono">
+                <span id="clocktime" class="text-lg">13:33:30</span>
+                <div id="datetime" class="text-sm">23/07/2024</div>
+            </div>
         </div>
     </nav>
 
@@ -295,13 +339,20 @@
                             <!-- Mold Select -->
                             <div class="flex-1">
                                 <label for="moldSelect" class="block text-sm font-medium text-gray-700 mb-1">Mold</label>
-                                <select id="moldSelect" class="w-48">
+                                <select id="moldSelect" class="w-full" style="max-width: 50px !important; width: 50px !important;">
                                     <option value="">All Molds</option>
                                 </select>
                             </div>
-
+                            
+                            <!-- Process Select -->
+                            <div class="flex-1">
+                                <label for="processSelect" class="block text-sm font-medium text-gray-700 mb-1">Process</label>
+                                <select id="processSelect" class="w-full" style="max-width: 50px !important; width: 50px !important;">
+                                    <option value="">All Processes</option>
+                                </select>
+                            </div>
                             <!-- Total Products -->
-                            <div class="flex items-end">
+                            <div class="flex items-end hidden">
                                 <div class="text-center">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Total Products</label>
                                     <span id="totalProducts" class="text-2xl font-bold text-blue-600">0</span>
@@ -331,10 +382,14 @@
                             
                             <!-- Date range inputs -->
                             <div class="flex items-center gap-2">
-                                <label for="chartFromDate" class="text-sm font-medium text-gray-700">From:</label>
-                                <input type="date" id="chartFromDate" class="p-2 border rounded text-gray-700">
-                                <label for="chartToDate" class="text-sm font-medium text-gray-700">To:</label>
-                                <input type="date" id="chartToDate" class="p-2 border rounded text-gray-700">
+                                <label for="chartFromDate" class="text-xs font-medium text-gray-700">From:</label>
+                                <input type="datetime-local" 
+                                       id="chartFromDate" 
+                                       class="p-1 border rounded text-gray-700 text-xs w-40">
+                                <label for="chartToDate" class="text-xs font-medium text-gray-700">To:</label>
+                                <input type="datetime-local" 
+                                       id="chartToDate" 
+                                       class="p-1 border rounded text-gray-700 text-xs w-40">
                             </div>
                         </div>
                     </div>
@@ -428,14 +483,17 @@
             </div>
         </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script src="js/PopupUtil.js"></script>
+    <script src="js/home-sync.js"></script>
     <script src="js/home.js"></script>
     <script src="js/home-main-chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="./js/services/auth-service.js"></script>
+    <script src="./js/login-handler.js"></script>
+    <script src="./js/route-protection.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const tableScroll = document.getElementById('table-scroll');

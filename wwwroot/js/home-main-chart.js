@@ -1,4 +1,4 @@
-$(document).ready(function() {
+$(document).ready(function () {
     // Initialize Select2 for spec select
     $('#chartSpecSelect').select2({
         placeholder: 'Select Specification',
@@ -10,12 +10,12 @@ $(document).ready(function() {
     const today = new Date();
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(today.getDate() - 7);
-    
-    $('#chartFromDate').val(sevenDaysAgo.toISOString().split('T')[0]);
-    $('#chartToDate').val(today.toISOString().split('T')[0]);
+
+    $('#chartFromDate').val(sevenDaysAgo.toISOString().slice(0, 16));
+    $('#chartToDate').val(today.toISOString().slice(0, 16));
 
     // Add event listeners
-    $('#chartFromDate, #chartToDate, #chartSpecSelect').on('change', async function() {
+    $('#chartFromDate, #chartToDate, #chartSpecSelect').on('change', async function () {
         await refreshChart();
     });
 });
@@ -25,9 +25,9 @@ async function initializeChartSpecSelect(modelId) {
     try {
         const specs = await ModelSpecificationService.getSpecifications(modelId);
         const $specSelect = $('#chartSpecSelect');
-        
+
         $specSelect.empty().append('<option value="">Select Specification</option>');
-        
+
         specs.forEach(spec => {
             $specSelect.append(new Option(`${spec.SpecName} (${spec.Unit || ''})`, spec.SpecId));
         });
@@ -64,7 +64,7 @@ async function refreshChart() {
         const products = await ProductService.getProductsByModelAndMold(modelId, moldNumber);
         const specs = await ModelSpecificationService.getSpecifications(modelId);
         const selectedSpec = specs.find(s => s.SpecId == specId);
-        
+
         if (products && products.length > 0 && selectedSpec) {
             updateMeasurementChart(products, [selectedSpec]); // Pass only selected spec
         }
@@ -74,7 +74,7 @@ async function refreshChart() {
 }
 
 // Update model select change handler to use autoSelectFirstSpec
-$('#modelSelect').on('change', async function() {
+$('#modelSelect').on('change', async function () {
     const modelId = $(this).val();
     if (!modelId) return;
 
@@ -84,7 +84,7 @@ $('#modelSelect').on('change', async function() {
         await loadMoldsForModel(modelId);
         await initializeChartSpecSelect(modelId);
         await refreshMeasurementsTable();
-        
+
         // Auto-select first spec after a short delay
         setTimeout(autoSelectFirstSpec, 100);
     } catch (error) {
@@ -94,7 +94,7 @@ $('#modelSelect').on('change', async function() {
 });
 
 // Update mold select change handler
-$('#moldSelect').on('change', async function() {
+$('#moldSelect').on('change', async function () {
     await refreshChart();
 });
 
@@ -104,142 +104,197 @@ function updateMeasurementChart(products, specs) {
         const ctx = document.getElementById('measurementChart').getContext('2d');
         const fromDate = new Date($('#chartFromDate').val());
         const toDate = new Date($('#chartToDate').val());
-        toDate.setHours(23, 59, 59, 999);
+        console.log(toDate);
+        console.log(fromDate);
 
         if (window.measurementChart instanceof Chart) {
             window.measurementChart.destroy();
         }
 
+        // Fix the date filtering to include time
         const filteredProducts = products.filter(product => {
-            const productDate = new Date(product.MeasurementDate);
+            const productDate = new Date(product.MeasurementDate + 'Z');
             return productDate >= fromDate && productDate <= toDate;
         });
 
-        // Group measurements by date for each spec
-        const measurementsBySpec = {};
-        specs.forEach(spec => {
-            measurementsBySpec[spec.SpecId] = {};
-            
-            filteredProducts.forEach(product => {
-                const date = new Date(product.MeasurementDate);
-                const dateStr = date.toISOString().split('T')[0];
-                
-                if (!measurementsBySpec[spec.SpecId][dateStr]) {
-                    measurementsBySpec[spec.SpecId][dateStr] = [];
-                }
-
-                const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
-                if (measurement) {
-                    measurementsBySpec[spec.SpecId][dateStr].push(measurement.Value);
-                }
-            });
-        });
+        // Calculate time difference in hours
+        const hoursDiff = (toDate - fromDate) / (1000 * 60 * 60);
+        const isWithin24Hours = hoursDiff <= 24;
 
         const datasets = [];
-
         specs.forEach((spec, index) => {
             const colorIndex = index % SPEC_COLORS.length;
             const mainColor = SPEC_COLORS[colorIndex];
-            
-            // Calculate daily stats for this spec
-            const dailyStats = Object.entries(measurementsBySpec[spec.SpecId])
-                .map(([date, values]) => ({
-                    date,
-                    min: Math.min(...values),
-                    max: Math.max(...values),
-                    avg: values.reduce((sum, val) => sum + val, 0) / values.length
-                }))
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-            // Add average line
-            datasets.push({
-                label: spec.SpecName + ' Avg',
-                data: dailyStats.map(stat => ({
-                    x: new Date(stat.date),
-                    y: stat.avg
-                })),
-                borderColor: mainColor,
-                backgroundColor: mainColor,
-                tension: 0.4,
-                fill: false,
-                borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
-                hitRadius: 10,
-                specIndex: index
-            });
+            if (isWithin24Hours) {
+                // For 24h view - show actual measurements
+                const measurements = filteredProducts
+                    .flatMap(product => {
+                        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                        if (measurement) {
+                            return [{
+                                time: new Date(product.MeasurementDate + 'Z'),
+                                value: measurement.Value
+                            }];
+                        }
+                        return [];
+                    })
+                    .sort((a, b) => a.time - b.time);
 
-            // Add min line
-            datasets.push({
-                label: `${spec.SpecName} Min`,
-                data: dailyStats.map(stat => ({
-                    x: new Date(stat.date),
-                    y: stat.min
-                })),
-                borderColor: 'rgba(255, 0, 0, 1.0)', //red color with full opacity
-                borderDash: [5, 3],
-                tension: 0.4,
-                fill: false,
-                borderWidth: 1.5,
-                pointRadius: 2,
-                hitRadius: 10,
-                specIndex: index
-            });
+                // Get all measurements for this spec
+                const allMeasurements = filteredProducts
+                    .flatMap(product => {
+                        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                        if (measurement) {
+                            return [{
+                                time: new Date(product.MeasurementDate + 'Z'),
+                                value: measurement.Value
+                            }];
+                        }
+                        return [];
+                    })
+                    .sort((a, b) => a.time - b.time);
 
-            // Add max line
-            datasets.push({
-                label: `${spec.SpecName} Max`,
-                data: dailyStats.map(stat => ({
-                    x: new Date(stat.date),
-                    y: stat.max
-                })),
-                borderColor: 'rgba(0, 255, 0, 1.0)', //green color with full opacity
-                borderDash: [5, 3],
-                tension: 0.4,
-                fill: {
-                    target: '-1',
-                    above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
-                },
-                borderWidth: 1.5,
-                pointRadius: 2,
-                hitRadius: 10,
-                specIndex: index
-            });
+                // Add actual values line
+                datasets.push({
+                    label: spec.SpecName,
+                    data: measurements.map(m => ({
+                        x: m.time,
+                        y: m.value
+                    })),
+                    borderColor: mainColor,
+                    backgroundColor: mainColor,
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    hitRadius: 10,
+                    specIndex: index
+                });
 
-            // Add spec limit lines if available
-            // if (spec.MinValue !== null) {
-            //     datasets.push({
-            //         label: `${spec.SpecName} Spec Min`,
-            //         data: dailyStats.map(stat => ({
-            //             x: new Date(stat.date),
-            //             y: spec.MinValue
-            //         })),
-            //         borderColor: 'rgba(255, 99, 132, 0.5)',
-            //         borderDash: [10, 5],
-            //         borderWidth: 1,
-            //         pointRadius: 0,
-            //         hitRadius: 0,
-            //         fill: false,
-            //         specIndex: index
-            //     });
-            // }
+                // Add specification min line
+                datasets.push({
+                    label: `${spec.SpecName} Min`,
+                    data: allMeasurements.map(m => ({
+                        x: m.time,
+                        y: spec.MinValue
+                    })),
+                    borderColor: 'rgba(255, 0, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0,
+                    fill: false,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    hitRadius: 10,
+                    specIndex: index
+                });
 
-            // if (spec.MaxValue !== null) {
-            //     datasets.push({
-            //         label: `${spec.SpecName} Spec Max`,
-            //         data: dailyStats.map(stat => ({
-            //             x: new Date(stat.date),
-            //             y: spec.MaxValue
-            //         })),
-            //         borderColor: 'rgba(255, 99, 132, 0.5)',
-            //         borderDash: [10, 5],
-            //         borderWidth: 1,
-            //         pointRadius: 0,
-            //         hitRadius: 0,
-            //         fill: false,
-            //         specIndex: index
-            //     });
-            // }
+                // Add specification max line
+                datasets.push({
+                    label: `${spec.SpecName} Max`,
+                    data: allMeasurements.map(m => ({
+                        x: m.time,
+                        y: spec.MaxValue
+                    })),
+                    borderColor: 'rgba(0, 255, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0,
+                    fill: {
+                        target: '-1',
+                        above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
+                    },
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+
+            } else {
+                // For daily view - group by date and calculate stats
+                const measurementsByDate = {};
+
+                filteredProducts.forEach(product => {
+                    const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                    if (measurement) {
+                        const dateStr = new Date(product.MeasurementDate + 'Z').toISOString().split('T')[0];
+                        if (!measurementsByDate[dateStr]) {
+                            measurementsByDate[dateStr] = [];
+                        }
+                        measurementsByDate[dateStr].push(measurement.Value);
+                    }
+                });
+
+                // Calculate daily stats
+                const dailyStats = Object.entries(measurementsByDate)
+                    .map(([date, values]) => ({
+                        time: new Date(date),
+                        min: Math.min(...values),
+                        max: Math.max(...values),
+                        avg: values.reduce((sum, val) => sum + val, 0) / values.length
+                    }))
+                    .sort((a, b) => a.time - b.time);
+
+                // Add average line
+                datasets.push({
+                    label: `${spec.SpecName} Avg`,
+                    data: dailyStats.map(stat => ({
+                        x: stat.time,
+                        y: stat.avg
+                    })),
+                    borderColor: mainColor,
+                    backgroundColor: mainColor,
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+                // Add min/max lines for both views
+                const timeStats = isWithin24Hours
+                    ? groupMeasurementsByTime(filteredProducts, spec)
+                    : groupMeasurementsByDay(filteredProducts, spec);
+
+                // Add min line
+                datasets.push({
+                    label: `${spec.SpecName} Min`,
+                    data: timeStats.map(stat => ({
+                        x: stat.time,
+                        y: stat.min
+                    })),
+                    borderColor: 'rgba(255, 0, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+
+                // Add max line
+                datasets.push({
+                    label: `${spec.SpecName} Max`,
+                    data: timeStats.map(stat => ({
+                        x: stat.time,
+                        y: stat.max
+                    })),
+                    borderColor: 'rgba(0, 255, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0.4,
+                    fill: {
+                        target: '-1',
+                        above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
+                    },
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+            }
+
         });
 
         window.measurementChart = new Chart(ctx, {
@@ -257,16 +312,16 @@ function updateMeasurementChart(products, specs) {
                 plugins: {
                     legend: {
                         position: 'top',
-                        onClick: function(e, legendItem, legend) {
+                        onClick: function (e, legendItem, legend) {
                             const index = legendItem.datasetIndex;
                             const chart = legend.chart;
                             const clickedDataset = chart.data.datasets[index];
-                            
+
                             // Hide all datasets first
                             chart.data.datasets.forEach((dataset, i) => {
                                 chart.getDatasetMeta(i).hidden = true;
                             });
-                            
+
                             // Show clicked dataset and its related min/max lines
                             const specIndex = clickedDataset.specIndex;
                             chart.data.datasets.forEach((dataset, i) => {
@@ -274,20 +329,15 @@ function updateMeasurementChart(products, specs) {
                                     chart.getDatasetMeta(i).hidden = false;
                                 }
                             });
-                            
+
                             chart.update();
-                        },
-                        labels: {
-                            filter: function(legendItem) {
-                                return !legendItem.text.includes('Spec');
-                            }
                         }
                     },
                     tooltip: {
                         callbacks: {
-                            title: function(context) {
+                            title: function (context) {
                                 const date = new Date(context[0].raw.x);
-                                return date.toLocaleDateString('vi-VN', {
+                                return date.toLocaleString('vi-VN', {
                                     day: '2-digit',
                                     month: '2-digit',
                                     year: 'numeric',
@@ -302,8 +352,9 @@ function updateMeasurementChart(products, specs) {
                     x: {
                         type: 'time',
                         time: {
-                            unit: 'day',
+                            unit: isWithin24Hours ? 'hour' : 'day',
                             displayFormats: {
+                                hour: 'HH:mm',
                                 day: 'dd/MM'
                             }
                         },
@@ -312,8 +363,14 @@ function updateMeasurementChart(products, specs) {
                             minRotation: 45,
                             autoSkip: true,
                             maxTicksLimit: 10,
-                            callback: function(value) {
+                            callback: function (value) {
                                 const date = new Date(value);
+                                if (isWithin24Hours) {
+                                    return date.toLocaleTimeString('vi-VN', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                }
                                 return date.toLocaleDateString('vi-VN', {
                                     day: '2-digit',
                                     month: '2-digit'
@@ -328,12 +385,6 @@ function updateMeasurementChart(products, specs) {
             }
         });
 
-        // Hide all min/max lines initially
-        datasets.forEach((dataset, index) => {
-            if (dataset.label.includes('Min') || dataset.label.includes('Max')) {
-                window.measurementChart.getDatasetMeta(index).hidden = false;
-            }
-        });
         window.measurementChart.update();
 
     } catch (error) {
@@ -342,10 +393,57 @@ function updateMeasurementChart(products, specs) {
     }
 }
 
+// Helper functions for grouping measurements
+function groupMeasurementsByTime(products, spec) {
+    const measurementsByTime = {};
+
+    products.forEach(product => {
+        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+        if (measurement) {
+            const timeKey = new Date(product.MeasurementDate + 'Z').getTime();
+            if (!measurementsByTime[timeKey]) {
+                measurementsByTime[timeKey] = [];
+            }
+            measurementsByTime[timeKey].push(measurement.Value);
+        }
+    });
+
+    return Object.entries(measurementsByTime)
+        .map(([timeKey, values]) => ({
+            time: new Date(parseInt(timeKey)),
+            min: Math.min(...values),
+            max: Math.max(...values)
+        }))
+        .sort((a, b) => a.time - b.time);
+}
+
+function groupMeasurementsByDay(products, spec) {
+    const measurementsByDate = {};
+
+    products.forEach(product => {
+        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+        if (measurement) {
+            const dateStr = new Date(product.MeasurementDate + 'Z').toISOString().split('T')[0];
+            if (!measurementsByDate[dateStr]) {
+                measurementsByDate[dateStr] = [];
+            }
+            measurementsByDate[dateStr].push(measurement.Value);
+        }
+    });
+
+    return Object.entries(measurementsByDate)
+        .map(([date, values]) => ({
+            time: new Date(date),
+            min: Math.min(...values),
+            max: Math.max(...values)
+        }))
+        .sort((a, b) => a.time - b.time);
+}
+
 // Update the groupAndAverageData function
 function groupAndAverageData(products, specs) {
     const groupedProducts = {};
-    
+
     products.forEach(product => {
         const date = new Date(product.MeasurementDate);
         const groupKey = date.toLocaleDateString('vi-VN', {
@@ -369,8 +467,8 @@ function groupAndAverageData(products, specs) {
 
     Object.entries(groupedProducts)
         .sort(([dateA], [dateB]) => {
-            return new Date(dateA.split('/').reverse().join('-')) - 
-                   new Date(dateB.split('/').reverse().join('-'));
+            return new Date(dateA.split('/').reverse().join('-')) -
+                new Date(dateB.split('/').reverse().join('-'));
         })
         .forEach(([dateKey, groupProducts]) => {
             labels.push(dateKey);
@@ -465,7 +563,7 @@ async function refreshMeasurementsTable() {
     try {
         const modelId = $('#modelSelect').val();
         const selectedMold = $('#moldSelect').val();
-        
+
         if (modelId) {
             // Show loading state
             const tableContainer = document.getElementById('measurements-table');
@@ -478,15 +576,15 @@ async function refreshMeasurementsTable() {
 
             // Get the currently selected spec before refreshing
             const selectedSpec = await getCurrentSelectedSpec(modelId);
-            
+
             // Initialize empty chart first
             initEmptyChart();
-            
+
             // Get all products for the model
             const allProducts = await ProductService.getProductsByModelId(modelId);
-            
+
             // Filter products by mold if selected
-            const filteredProducts = selectedMold 
+            const filteredProducts = selectedMold
                 ? allProducts.filter(p => p.MoldNumber === selectedMold)
                 : allProducts;
 
@@ -501,7 +599,7 @@ async function refreshMeasurementsTable() {
     } catch (error) {
         console.error('❌ Error refreshing measurements:', error);
         showToast('Error refreshing data: ' + error.message, 'error');
-        
+
         const tableContainer = document.getElementById('measurements-table');
         tableContainer.innerHTML = `
             <div class="text-center py-4 text-red-600">

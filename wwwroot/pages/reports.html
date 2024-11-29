@@ -89,11 +89,30 @@
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-center text-black">Measurement Analysis</h3>
                         <div class="flex items-center gap-2">
-                            <label for="fromDate" class="text-sm font-medium text-black">From:</label>
-                            <input type="date" id="fromDate" class="p-2 border rounded text-black" placeholder="From Date">
+                            <!-- <label for="fromDate" class="text-sm font-medium text-black">From:</label>
+                            <input type="datetime-local" id="fromDate" class="p-2 border rounded text-black" placeholder="From Date">
                             <label for="toDate" class="text-sm font-medium text-black">To:</label>
-                            <input type="date" id="toDate" class="p-2 border rounded text-black" placeholder="To Date">
+                            <input type="datetime-local" id="toDate" class="p-2 border rounded text-black" placeholder="To Date"> -->
+                            
+                            <label for="fromDate" class="text-xs font-medium text-gray-700">From:</label>
+                            <input type="datetime-local" 
+                                   id="fromDate" 
+                                   class="p-1 border rounded text-gray-700 text-xs w-40">
+                            <label for="toDate" class="text-xs font-medium text-gray-700">To:</label>
+                            <input type="datetime-local" 
+                                   id="toDate" 
+                                   class="p-1 border rounded text-gray-700 text-xs w-40">
                         </div>
+                        <!-- <div class="flex items-center gap-2">
+                            <label for="chartFromDate" class="text-xs font-medium text-gray-700">From:</label>
+                            <input type="datetime-local" 
+                                   id="chartFromDate" 
+                                   class="p-1 border rounded text-gray-700 text-xs w-40">
+                            <label for="chartToDate" class="text-xs font-medium text-gray-700">To:</label>
+                            <input type="datetime-local" 
+                                   id="chartToDate" 
+                                   class="p-1 border rounded text-gray-700 text-xs w-40">
+                        </div> -->
                     </div>
                     <div class="flex justify-end items-center gap-4">
                         <select id="modelSelect" class="p-2 border rounded text-black">

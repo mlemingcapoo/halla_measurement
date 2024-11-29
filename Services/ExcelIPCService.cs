@@ -308,6 +308,7 @@ namespace Services
                         MinValue = spec.MinValue ?? 0,
                         MaxValue = spec.MaxValue ?? 0,
                         EquipName = spec.EquipName,
+                        ProcessName = spec.ProcessName,
                         MoldValues = products
                             .Select((prod, index) => new MoldValue
                             {

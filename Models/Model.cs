@@ -21,5 +21,6 @@ namespace Models
         public virtual ICollection<ModelSpecification> Specifications { get; set; } = new List<ModelSpecification>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
         public virtual ICollection<ModelImage> Images { get; set; } = new List<ModelImage>();
+        public virtual ICollection<ModelDocument> Documents { get; set; } = new List<ModelDocument>();
     }
 } 

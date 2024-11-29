@@ -8,3 +8,4 @@ config/database.config.json
 .fake
 /wwwroot/templates/excel/models
 /wwwroot/images
+/wwwroot/pdfs

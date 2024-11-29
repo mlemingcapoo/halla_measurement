@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Models
 {
@@ -26,6 +27,9 @@ namespace Models
         [Required]
         public string ActionType { get; set; } = string.Empty; // CREATE, UPDATE, DELETE
         
-        public string? UserName { get; set; } // Optional: if you want to track who made the change
+        public int? UserId { get; set; } // Changed from UserName to UserId
+        
+        [ForeignKey("UserId")]
+        public virtual User? User { get; set; } // Add navigation property
     }
 }

@@ -28,11 +28,14 @@ $(document).ready(async function () {
 
 function initializeDateInputs() {
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const yesterday = new Date(today);
+    const tomorrow = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    tomorrow.setDate(today.getDate() + 1);
 
-    document.getElementById('fromDate').value = thirtyDaysAgo.toISOString().split('T')[0];
-    document.getElementById('toDate').value = today.toISOString().split('T')[0];
+    // Format datetime-local strings
+    document.getElementById('fromDate').value = yesterday.toISOString().slice(0, 16);
+    document.getElementById('toDate').value = tomorrow.toISOString().slice(0, 16);
 }
 
 function initializeEventListeners() {
@@ -126,6 +129,7 @@ async function loadProductMeasurements(modelId, products = null) {
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
         const specId = document.getElementById('specSelect').value;
+        const selectedMold = $('#moldSelect').val();
 
         if (!fromDate || !toDate || !specId) {
             console.log('Please select all filters (From Date, To Date, and Spec)');
@@ -146,36 +150,42 @@ async function loadProductMeasurements(modelId, products = null) {
             products = await ProductService.getProductsByModelId(modelId);
         }
 
-        // Filter products by date range
-        const fromDateObj = new Date(fromDate);
-        const toDateObj = new Date(toDate);
-        toDateObj.setHours(23, 59, 59, 999);
+        const filteredProducts = selectedMold
+                ? products.filter(p => p.MoldNumber === selectedMold)
+                : products; 
+        
+    
 
-        const filteredProducts = products.filter(product => {
-            const productDate = new Date(product.MeasurementDate);
-            return productDate >= fromDateObj && productDate <= toDateObj;
-        });
+        // Filter products by date range
+        // const fromDateObj = new Date(fromDate);
+        // const toDateObj = new Date(toDate);
+        // toDateObj.setHours(23, 59, 59, 999);
+
+        // const filteredProducts = products.filter(product => {
+        //     const productDate = new Date(product.MeasurementDate);
+        //     return productDate >= fromDateObj && productDate <= toDateObj;
+        // });
 
         // Check if there are any measurements for the selected spec
-        const hasMeasurements = filteredProducts.some(product => 
-            product.Measurements.some(m => m.SpecId === selectedSpec.SpecId)
-        );
+        // const hasMeasurements = filteredProducts.some(product =>
+        //     product.Measurements.some(m => m.SpecId === selectedSpec.SpecId)
+        // );
 
-        if (filteredProducts.length > 0 && hasMeasurements) {
-            await updateMeasurementChart(filteredProducts, selectedSpec);
+        if (filteredProducts.length > 0 && selectedSpec) {
+            await updateMeasurementChart(filteredProducts, [selectedSpec]);
         } else {
             console.log('No data found for the selected date range and spec');
             destroyChart();
-            
-            // Optional: Show a message in the chart area
+
+            // Show a message in the chart area
             const ctx = document.getElementById('measurementChart').getContext('2d');
             ctx.canvas.style.height = '100%';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.font = '16px Arial';
             ctx.fillStyle = '#666';
-            ctx.fillText('No data available for selected filters', 
-                ctx.canvas.width / 2, 
+            ctx.fillText('No data available for selected filters',
+                ctx.canvas.width / 2,
                 ctx.canvas.height / 2);
         }
 
@@ -185,29 +195,65 @@ async function loadProductMeasurements(modelId, products = null) {
         throw error;
     }
 }
-
 // Cập nhật hàm groupAndAverageData
-function groupAndAverageData(products, specs, zoomLevel) {
+// Helper functions for grouping measurements
+function groupMeasurementsByTime(products, spec) {
+    const measurementsByTime = {};
+
+    products.forEach(product => {
+        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+        if (measurement) {
+            const timeKey = new Date(product.MeasurementDate + 'Z').getTime();
+            if (!measurementsByTime[timeKey]) {
+                measurementsByTime[timeKey] = [];
+            }
+            measurementsByTime[timeKey].push(measurement.Value);
+        }
+    });
+
+    return Object.entries(measurementsByTime)
+        .map(([timeKey, values]) => ({
+            time: new Date(parseInt(timeKey)),
+            min: Math.min(...values),
+            max: Math.max(...values)
+        }))
+        .sort((a, b) => a.time - b.time);
+}
+
+function groupMeasurementsByDay(products, spec) {
+    const measurementsByDate = {};
+
+    products.forEach(product => {
+        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+        if (measurement) {
+            const dateStr = new Date(product.MeasurementDate + 'Z').toISOString().split('T')[0];
+            if (!measurementsByDate[dateStr]) {
+                measurementsByDate[dateStr] = [];
+            }
+            measurementsByDate[dateStr].push(measurement.Value);
+        }
+    });
+
+    return Object.entries(measurementsByDate)
+        .map(([date, values]) => ({
+            time: new Date(date),
+            min: Math.min(...values),
+            max: Math.max(...values)
+        }))
+        .sort((a, b) => a.time - b.time);
+}
+
+// Update the groupAndAverageData function
+function groupAndAverageData(products, specs) {
     const groupedProducts = {};
 
     products.forEach(product => {
-        const date = new Date(product.MeasurementDate + 'Z');
-        let groupKey;
-
-        switch (zoomLevel) {
-            case '24h':
-                // Sử dụng timestamp làm key để không gộp các điểm
-                groupKey = date.getTime().toString();
-                break;
-            case '7d':
-            case '30d':
-                groupKey = date.toLocaleDateString('vi-VN', {
-                    year: '2-digit',
-                    month: '2-digit',
-                    day: '2-digit'
-                });
-                break;
-        }
+        const date = new Date(product.MeasurementDate);
+        const groupKey = date.toLocaleDateString('vi-VN', {
+            year: '2-digit',
+            month: '2-digit',
+            day: '2-digit'
+        });
 
         if (!groupedProducts[groupKey]) {
             groupedProducts[groupKey] = [];
@@ -224,47 +270,26 @@ function groupAndAverageData(products, specs, zoomLevel) {
 
     Object.entries(groupedProducts)
         .sort(([dateA], [dateB]) => {
-            // Sắp xếp theo timestamp cho chế độ 24h
-            if (zoomLevel === '24h') {
-                return parseInt(dateA) - parseInt(dateB);
-            }
-            return new Date(dateA + 'Z') - new Date(dateB + 'Z');
+            return new Date(dateA.split('/').reverse().join('-')) -
+                new Date(dateB.split('/').reverse().join('-'));
         })
         .forEach(([dateKey, groupProducts]) => {
-            // Format label dựa trên zoom level
-            let label;
-            if (zoomLevel === '24h') {
-                const date = new Date(parseInt(dateKey + 'Z'));
-                label = date.toLocaleString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
-            } else {
-                label = dateKey;
-            }
-            labels.push(label);
+            labels.push(dateKey);
 
             specs.forEach(spec => {
-                if (zoomLevel === '24h') {
-                    // Không tính trung bình cho chế độ 24h
-                    const measurement = groupProducts[0].Measurements.find(m => m.SpecId === spec.SpecId);
-                    averagedData[spec.SpecId].push(measurement ? measurement.Value : null);
-                } else {
-                    // Tính trung bình cho cc chế độ khác
-                    const values = groupProducts
-                        .map(product => {
-                            const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
-                            return measurement ? measurement.Value : null;
-                        })
-                        .filter(value => value !== null);
+                // Calculate average for each spec
+                const values = groupProducts
+                    .map(product => {
+                        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                        return measurement ? measurement.Value : null;
+                    })
+                    .filter(value => value !== null);
 
-                    const average = values.length > 0
-                        ? values.reduce((sum, val) => sum + val, 0) / values.length
-                        : null;
+                const average = values.length > 0
+                    ? values.reduce((sum, val) => sum + val, 0) / values.length
+                    : null;
 
-                    averagedData[spec.SpecId].push(average);
-                }
+                averagedData[spec.SpecId].push(average);
             });
         });
 
@@ -311,124 +336,205 @@ function determineTimeUnit(fromDate, toDate) {
     return 'year';
 }
 
-// Cập nhật hàm updateMeasurementChart
-function updateMeasurementChart(products, selectedSpec) {
+function updateMeasurementChart(products, specs) {
     try {
-        // Destroy existing chart
-        destroyChart();
-
         const ctx = document.getElementById('measurementChart').getContext('2d');
+        const fromDate = new Date($('#fromDate').val());
+        const toDate = new Date($('#toDate').val());
+        console.log(toDate);
+        console.log(fromDate);
 
-        // Group measurements by date
-        const measurementsByDate = {};
+        if (window.measurementChart instanceof Chart) {
+            window.measurementChart.destroy();
+        }
 
-        products.forEach(product => {
-            const dateStr = product.MeasurementDate.split('T')[0];
-            if (!measurementsByDate[dateStr]) {
-                measurementsByDate[dateStr] = [];
-            }
-
-            const measurements = product.Measurements
-                .filter(m => m.SpecId === selectedSpec.SpecId)
-                .map(m => m.Value);
-
-            measurementsByDate[dateStr].push(...measurements);
+        // Fix the date filtering to include time
+        const filteredProducts = products.filter(product => {
+            const productDate = new Date(product.MeasurementDate + 'Z');
+            return productDate >= fromDate && productDate <= toDate;
         });
 
-        // Calculate daily stats
-        const dailyStats = Object.entries(measurementsByDate)
-            .map(([date, values]) => ({
-                date,
-                min: Math.min(...values),
-                max: Math.max(...values),
-                avg: values.reduce((sum, val) => sum + val, 0) / values.length
-            }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Calculate time difference in hours
+        const hoursDiff = (toDate - fromDate) / (1000 * 60 * 60);
+        const isWithin24Hours = hoursDiff <= 24;
 
-        const datasets = [
-            {
-                label: `${selectedSpec.SpecName} Average`,
-                data: dailyStats.map(stat => ({
-                    x: new Date(stat.date),
-                    y: stat.avg
-                })),
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgb(75, 192, 192)',
-                tension: 0.4,
-                fill: false,
-                borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 5,
-                hitRadius: 10
-            },
-            {
-                label: `${selectedSpec.SpecName} Min`,
-                data: dailyStats.map(stat => ({
-                    x: new Date(stat.date),
-                    y: stat.min
-                })),
-                borderColor: 'rgba(255, 0, 0, 1.0)', // Red color with full opacity
-                borderDash: [5, 3],
-                tension: 0.4,
-                fill: false,
-                borderWidth: 1.5,
-                pointRadius: 2,
-                hitRadius: 10
-            },
-            {
-                label: `${selectedSpec.SpecName} Max`,
-                data: dailyStats.map(stat => ({
-                    x: new Date(stat.date),
-                    y: stat.max
-                })),
-                borderColor: 'rgba(0, 255, 0, 1.0)', // Green color with full opacity
-                borderDash: [5, 3],
-                tension: 0.4,
-                fill: {
-                    target: '-1',
-                    above: 'rgba(75, 192, 192, 0.1)'
-                },
-                borderWidth: 1.5,
-                pointRadius: 2,
-                hitRadius: 10
+        const datasets = [];
+        specs.forEach((spec, index) => {
+            const colorIndex = index % SPEC_COLORS.length;
+            const mainColor = SPEC_COLORS[colorIndex];
+
+            if (isWithin24Hours) {
+                // For 24h view - show actual measurements
+                const measurements = filteredProducts
+                    .flatMap(product => {
+                        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                        if (measurement) {
+                            return [{
+                                time: new Date(product.MeasurementDate + 'Z'),
+                                value: measurement.Value
+                            }];
+                        }
+                        return [];
+                    })
+                    .sort((a, b) => a.time - b.time);
+
+                // Get all measurements for this spec
+                const allMeasurements = filteredProducts
+                    .flatMap(product => {
+                        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                        if (measurement) {
+                            return [{
+                                time: new Date(product.MeasurementDate + 'Z'),
+                                value: measurement.Value
+                            }];
+                        }
+                        return [];
+                    })
+                    .sort((a, b) => a.time - b.time);
+
+                // Add actual values line
+                datasets.push({
+                    label: spec.SpecName,
+                    data: measurements.map(m => ({
+                        x: m.time,
+                        y: m.value
+                    })),
+                    borderColor: mainColor,
+                    backgroundColor: mainColor,
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+
+                // Add specification min line
+                datasets.push({
+                    label: `${spec.SpecName} Min`,
+                    data: allMeasurements.map(m => ({
+                        x: m.time,
+                        y: spec.MinValue
+                    })),
+                    borderColor: 'rgba(255, 0, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0,
+                    fill: false,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+
+                // Add specification max line
+                datasets.push({
+                    label: `${spec.SpecName} Max`,
+                    data: allMeasurements.map(m => ({
+                        x: m.time,
+                        y: spec.MaxValue
+                    })),
+                    borderColor: 'rgba(0, 255, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0,
+                    fill: {
+                        target: '-1',
+                        above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
+                    },
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+
+            } else {
+                // For daily view - group by date and calculate stats
+                const measurementsByDate = {};
+
+                filteredProducts.forEach(product => {
+                    const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                    if (measurement) {
+                        const dateStr = new Date(product.MeasurementDate + 'Z').toISOString().split('T')[0];
+                        if (!measurementsByDate[dateStr]) {
+                            measurementsByDate[dateStr] = [];
+                        }
+                        measurementsByDate[dateStr].push(measurement.Value);
+                    }
+                });
+
+                // Calculate daily stats
+                const dailyStats = Object.entries(measurementsByDate)
+                    .map(([date, values]) => ({
+                        time: new Date(date),
+                        min: Math.min(...values),
+                        max: Math.max(...values),
+                        avg: values.reduce((sum, val) => sum + val, 0) / values.length
+                    }))
+                    .sort((a, b) => a.time - b.time);
+
+                // Add average line
+                datasets.push({
+                    label: `${spec.SpecName} Avg`,
+                    data: dailyStats.map(stat => ({
+                        x: stat.time,
+                        y: stat.avg
+                    })),
+                    borderColor: mainColor,
+                    backgroundColor: mainColor,
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+                // Add min/max lines for both views
+                const timeStats = isWithin24Hours
+                    ? groupMeasurementsByTime(filteredProducts, spec)
+                    : groupMeasurementsByDay(filteredProducts, spec);
+
+                // Add min line
+                datasets.push({
+                    label: `${spec.SpecName} Min`,
+                    data: timeStats.map(stat => ({
+                        x: stat.time,
+                        y: stat.min
+                    })),
+                    borderColor: 'rgba(255, 0, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    hitRadius: 10,
+                    specIndex: index
+                });
+
+                // Add max line
+                datasets.push({
+                    label: `${spec.SpecName} Max`,
+                    data: timeStats.map(stat => ({
+                        x: stat.time,
+                        y: stat.max
+                    })),
+                    borderColor: 'rgba(0, 255, 0, 1.0)',
+                    borderDash: [5, 3],
+                    tension: 0.4,
+                    fill: {
+                        target: '-1',
+                        above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
+                    },
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    hitRadius: 10,
+                    specIndex: index
+                });
             }
-        ];
 
-        // Add spec limits if available
-        // if (selectedSpec.MinValue !== null) {
-        //     datasets.push({
-        //         label: 'Spec Min',
-        //         data: dailyStats.map(stat => ({
-        //             x: new Date(stat.date),
-        //             y: selectedSpec.MinValue
-        //         })),
-        //         borderColor: 'rgba(0, 0, 0, 0.5)', // gray color with full opacity
-        //         borderDash: [10, 5],
-        //         borderWidth: 1,
-        //         pointRadius: 0,
-        //         hitRadius: 0,
-        //         fill: false
-        //     });
-        // }
+        });
 
-        // if (selectedSpec.MaxValue !== null) {
-        //     datasets.push({
-        //         label: 'Spec Max',
-        //         data: dailyStats.map(stat => ({
-        //             x: new Date(stat.date),
-        //             y: selectedSpec.MaxValue
-        //         })),
-        //         borderColor: 'rgba(0, 0, 0, 0.5)', // Green color with full opacity
-        //         borderDash: [10, 5],
-        //         borderWidth: 1,
-        //         pointRadius: 0,
-        //         hitRadius: 0,
-        //         fill: false
-        //     });
-        // }
-
-        // Create new chart
-        measurementChart = new Chart(ctx, {
+        window.measurementChart = new Chart(ctx, {
             type: 'line',
             data: {
                 datasets: datasets
@@ -443,20 +549,37 @@ function updateMeasurementChart(products, selectedSpec) {
                 plugins: {
                     legend: {
                         position: 'top',
-                        labels: {
-                            filter: function (legendItem) {
-                                return !legendItem.text.includes('Limit');
-                            }
+                        onClick: function (e, legendItem, legend) {
+                            const index = legendItem.datasetIndex;
+                            const chart = legend.chart;
+                            const clickedDataset = chart.data.datasets[index];
+
+                            // Hide all datasets first
+                            chart.data.datasets.forEach((dataset, i) => {
+                                chart.getDatasetMeta(i).hidden = true;
+                            });
+
+                            // Show clicked dataset and its related min/max lines
+                            const specIndex = clickedDataset.specIndex;
+                            chart.data.datasets.forEach((dataset, i) => {
+                                if (dataset.specIndex === specIndex) {
+                                    chart.getDatasetMeta(i).hidden = false;
+                                }
+                            });
+
+                            chart.update();
                         }
                     },
                     tooltip: {
                         callbacks: {
                             title: function (context) {
                                 const date = new Date(context[0].raw.x);
-                                return date.toLocaleDateString('vi-VN', {
+                                return date.toLocaleString('vi-VN', {
                                     day: '2-digit',
                                     month: '2-digit',
-                                    year: 'numeric'
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
                                 });
                             }
                         }
@@ -466,20 +589,28 @@ function updateMeasurementChart(products, selectedSpec) {
                     x: {
                         type: 'time',
                         time: {
-                            unit: 'day',
+                            unit: isWithin24Hours ? 'hour' : 'day',
                             displayFormats: {
-                                day: 'dd/MM/yyyy'
+                                hour: 'HH:mm',
+                                day: 'dd/MM'
                             }
                         },
                         ticks: {
                             maxRotation: 45,
                             minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10,
                             callback: function (value) {
                                 const date = new Date(value);
+                                if (isWithin24Hours) {
+                                    return date.toLocaleTimeString('vi-VN', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                }
                                 return date.toLocaleDateString('vi-VN', {
                                     day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
+                                    month: '2-digit'
                                 });
                             }
                         }
@@ -491,11 +622,277 @@ function updateMeasurementChart(products, selectedSpec) {
             }
         });
 
+        window.measurementChart.update();
+
     } catch (error) {
         console.error('Error updating measurement chart:', error);
         throw error;
     }
 }
+
+// Update the updateMeasurementChart function
+// function updateMeasurementChart(products, selectedSpec) {
+//     try {
+//         // Destroy existing chart
+//         destroyChart();
+
+//         const ctx = document.getElementById('measurementChart').getContext('2d');
+//         const fromDate = new Date($('#fromDate').val());
+//         const toDate = new Date($('#toDate').val());
+//         // toDate.setHours(23, 59, 59, 999); // Set to end of day
+//         console.log(toDate);
+//         console.log(fromDate);
+
+//         // Filter products by date range
+//         const filteredProducts = products.filter(product => {
+//             const productDate = new Date(product.MeasurementDate + 'Z');
+//             return productDate >= fromDate && productDate <= toDate;
+//         });
+
+//         // Calculate time difference in hours
+//         const hoursDiff = (toDate - fromDate) / (1000 * 60 * 60);
+//         const isWithin24Hours = hoursDiff <= 24;
+
+//         const datasets = [];
+//         const mainColor = 'rgb(75, 192, 192)';
+
+//         if (isWithin24Hours) {
+//             // For 24h view - show actual measurements
+//             const measurements = filteredProducts
+//                 .flatMap(product => {
+//                     const measurement = product.Measurements.find(m => m.SpecId === selectedSpec.SpecId);
+//                     if (measurement) {
+//                         return [{
+//                             time: new Date(product.MeasurementDate + 'Z'),
+//                             value: measurement.Value
+//                         }];
+//                     }
+//                     return [];
+//                 })
+//                 .sort((a, b) => a.time - b.time);
+
+//             // Get all measurements for this spec
+//             const allMeasurements = filteredProducts
+//                 .flatMap(product => {
+//                     const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+//                     if (measurement) {
+//                         return [{
+//                             time: new Date(product.MeasurementDate + 'Z'),
+//                             value: measurement.Value
+//                         }];
+//                     }
+//                     return [];
+//                 })
+//                 .sort((a, b) => a.time - b.time);
+
+//             // Add actual values line
+//             datasets.push({
+//                 label: selectedSpec.SpecName,
+//                 data: measurements.map(m => ({
+//                     x: m.time,
+//                     y: m.value
+//                 })),
+//                 borderColor: mainColor,
+//                 backgroundColor: mainColor,
+//                 tension: 0.4,
+//                 fill: false,
+//                 borderWidth: 2,
+//                 pointRadius: 3,
+//                 pointHoverRadius: 5,
+//                 hitRadius: 10
+//             });
+//             // Add specification min line
+//             datasets.push({
+//                 label: `${spec.SpecName} Min`,
+//                 data: allMeasurements.map(m => ({
+//                     x: m.time,
+//                     y: spec.MinValue
+//                 })),
+//                 borderColor: 'rgba(255, 0, 0, 1.0)',
+//                 borderDash: [5, 3],
+//                 tension: 0,
+//                 fill: false,
+//                 borderWidth: 1.5,
+//                 pointRadius: 0,
+//                 hitRadius: 10,
+//                 specIndex: index
+//             });
+
+//             // Add specification max line
+//             datasets.push({
+//                 label: `${spec.SpecName} Max`,
+//                 data: allMeasurements.map(m => ({
+//                     x: m.time,
+//                     y: spec.MaxValue
+//                 })),
+//                 borderColor: 'rgba(0, 255, 0, 1.0)',
+//                 borderDash: [5, 3],
+//                 tension: 0,
+//                 fill: {
+//                     target: '-1',
+//                     above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
+//                 },
+//                 borderWidth: 1.5,
+//                 pointRadius: 0,
+//                 hitRadius: 10,
+//                 specIndex: index
+//             });
+//         } else {
+//             // For daily view - group by date and calculate stats
+//             const measurementsByDate = {};
+
+//             filteredProducts.forEach(product => {
+//                 const measurement = product.Measurements.find(m => m.SpecId === selectedSpec.SpecId);
+//                 if (measurement) {
+//                     const dateStr = new Date(product.MeasurementDate + 'Z').toISOString().split('T')[0];
+//                     if (!measurementsByDate[dateStr]) {
+//                         measurementsByDate[dateStr] = [];
+//                     }
+//                     measurementsByDate[dateStr].push(measurement.Value);
+//                 }
+//             });
+
+//             // Calculate daily stats
+//             const dailyStats = Object.entries(measurementsByDate)
+//                 .map(([date, values]) => ({
+//                     time: new Date(date),
+//                     min: Math.min(...values),
+//                     max: Math.max(...values),
+//                     avg: values.reduce((sum, val) => sum + val, 0) / values.length
+//                 }))
+//                 .sort((a, b) => a.time - b.time);
+
+//             // Add average line
+//             datasets.push({
+//                 label: `${selectedSpec.SpecName} Average`,
+//                 data: dailyStats.map(stat => ({
+//                     x: stat.time,
+//                     y: stat.avg
+//                 })),
+//                 borderColor: mainColor,
+//                 backgroundColor: mainColor,
+//                 tension: 0.4,
+//                 fill: false,
+//                 borderWidth: 2,
+//                 pointRadius: 3,
+//                 pointHoverRadius: 5,
+//                 hitRadius: 10
+//             });
+
+//             // Add min line
+//             datasets.push({
+//                 label: `${selectedSpec.SpecName} Min`,
+//                 data: dailyStats.map(stat => ({
+//                     x: stat.time,
+//                     y: stat.min
+//                 })),
+//                 borderColor: 'rgba(255, 0, 0, 1.0)',
+//                 borderDash: [5, 3],
+//                 tension: 0.4,
+//                 fill: false,
+//                 borderWidth: 1.5,
+//                 pointRadius: 2,
+//                 hitRadius: 10
+//             });
+
+//             // Add max line
+//             datasets.push({
+//                 label: `${selectedSpec.SpecName} Max`,
+//                 data: dailyStats.map(stat => ({
+//                     x: stat.time,
+//                     y: stat.max
+//                 })),
+//                 borderColor: 'rgba(0, 255, 0, 1.0)',
+//                 borderDash: [5, 3],
+//                 tension: 0.4,
+//                 fill: {
+//                     target: '-1',
+//                     above: mainColor.replace('rgb', 'rgba').replace(')', ', 0.1)')
+//                 },
+//                 borderWidth: 1.5,
+//                 pointRadius: 2,
+//                 hitRadius: 10
+//             });
+//         }
+
+//         // Create new chart
+//         measurementChart = new Chart(ctx, {
+//             type: 'line',
+//             data: {
+//                 datasets: datasets
+//             },
+//             options: {
+//                 responsive: true,
+//                 maintainAspectRatio: false,
+//                 interaction: {
+//                     intersect: false,
+//                     mode: 'index'
+//                 },
+//                 plugins: {
+//                     legend: {
+//                         position: 'top',
+//                         labels: {
+//                             filter: function (legendItem) {
+//                                 return !legendItem.text.includes('Limit');
+//                             }
+//                         }
+//                     },
+//                     tooltip: {
+//                         callbacks: {
+//                             title: function (context) {
+//                                 const date = new Date(context[0].raw.x);
+//                                 return date.toLocaleString('vi-VN', {
+//                                     day: '2-digit',
+//                                     month: '2-digit',
+//                                     year: 'numeric',
+//                                     hour: isWithin24Hours ? '2-digit' : undefined,
+//                                     minute: isWithin24Hours ? '2-digit' : undefined
+//                                 });
+//                             }
+//                         }
+//                     }
+//                 },
+//                 scales: {
+//                     x: {
+//                         type: 'time',
+//                         time: {
+//                             unit: isWithin24Hours ? 'hour' : 'day',
+//                             displayFormats: {
+//                                 hour: 'HH:mm',
+//                                 day: 'dd/MM/yyyy'
+//                             }
+//                         },
+//                         ticks: {
+//                             maxRotation: 45,
+//                             minRotation: 45,
+//                             callback: function (value) {
+//                                 const date = new Date(value);
+//                                 if (isWithin24Hours) {
+//                                     return date.toLocaleTimeString('vi-VN', {
+//                                         hour: '2-digit',
+//                                         minute: '2-digit'
+//                                     });
+//                                 }
+//                                 return date.toLocaleDateString('vi-VN', {
+//                                     day: '2-digit',
+//                                     month: '2-digit',
+//                                     year: 'numeric'
+//                                 });
+//                             }
+//                         }
+//                     },
+//                     y: {
+//                         beginAtZero: false
+//                     }
+//                 }
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error updating measurement chart:', error);
+//         throw error;
+//     }
+// }
 
 
 // Thêm các event listeners cho model và mold select
@@ -533,11 +930,26 @@ $(document).ready(function () {
     $('#zoomLevel').on('change', async function () {
         const modelId = $('#modelSelect').val();
         const moldNumber = $('#moldSelect').val();
+        // try {
+        //     const products = await ProductService.getProductsByModelAndMold(modelId, moldNumber);
+        //     const specs = await ModelSpecificationService.getSpecifications(modelId);
+        //     const selectedSpec = specs.find(s => s.SpecId == specId);
+    
+        //     if (products && products.length > 0 && selectedSpec) {
+        //         updateMeasurementChart(products, [selectedSpec]); // Pass only selected spec
+        //     }
+        // } catch (error) {
+        //     console.error('Error refreshing chart:', error);
+        // }
         if (modelId) {
             const products = await ProductService.getProductsByModelAndMold(modelId, moldNumber);
             if (products && products.length > 0) {
                 const specs = await ModelSpecificationService.getSpecifications(modelId);
-                updateMeasurementChart(products, specs);
+                const selectedSpec = specs.find(s => s.SpecId == $('#specSelect').val());
+                // updateMeasurementChart(products, [specs]);
+                if (products && products.length > 0 && selectedSpec) {
+                    updateMeasurementChart(products, [selectedSpec]); // Pass only selected spec
+                }
             }
         }
     });
@@ -623,3 +1035,4 @@ async function initializeSpecSelect(modelId) {
         });
     }
 }
+

@@ -8,7 +8,8 @@ class ModelSpecificationService {
                     equipName: specData.equipName,
                     minValue: parseFloat(specData.minValue),
                     maxValue: parseFloat(specData.maxValue),
-                    unit: specData.unit
+                    unit: specData.unit,
+                    processName: specData.processName
                 };
 
                 window.electronAPI.send('spec-create', JSON.stringify(data));
@@ -39,7 +40,8 @@ class ModelSpecificationService {
                     equipName: specData.equipName,
                     minValue: parseFloat(specData.minValue),
                     maxValue: parseFloat(specData.maxValue),
-                    unit: specData.unit
+                    unit: specData.unit,
+                    processName: specData.processName
                 };
 
                 window.electronAPI.send('spec-update', JSON.stringify(data));

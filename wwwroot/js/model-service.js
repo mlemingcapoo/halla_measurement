@@ -344,4 +344,96 @@ class ModelService {
             }
         });
     }
+
+    static async uploadModelDocument(formData) {
+        return new Promise((resolve, reject) => {
+            try {
+                const file = formData.get('file');
+                const modelId = parseInt(formData.get('modelId'));
+
+                if (!file || !modelId) {
+                    throw new Error('Missing required file or model ID');
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64File = e.target.result.split(',')[1];
+                    const data = {
+                        ModelId: modelId,
+                        FileName: file.name,
+                        Base64File: base64File,
+                        UploadDate: new Date().toISOString()
+                    };
+
+                    console.log('📄 Sending document data:', { 
+                        modelId: data.ModelId,
+                        fileName: data.FileName,
+                        base64Length: data.Base64File.length,
+                        uploadDate: data.UploadDate
+                    });
+
+                    window.electronAPI.send('document-upload', JSON.stringify(data));
+                    window.electronAPI.receive('document-uploaded', (result) => resolve(JSON.parse(result)));
+                    window.electronAPI.receive('document-error', (error) => {
+                        console.error('📄 Document upload error:', error);
+                        reject(typeof error === 'string' ? JSON.parse(error) : error);
+                    });
+                };
+                reader.onerror = (error) => {
+                    console.error('📄 File read error:', error);
+                    reject(new Error('Failed to read file'));
+                };
+                reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('📄 Upload error:', error);
+                reject(error);
+            }
+        });
+    }
+
+    static async deleteModelDocument(documentData) {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('📄 Deleting document:', documentData);
+                window.electronAPI.send('document-delete', JSON.stringify(documentData));
+                window.electronAPI.receive('document-deleted', (result) => resolve(JSON.parse(result)));
+                window.electronAPI.receive('document-error', (error) => reject(JSON.parse(error)));
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    static async downloadModelDocument(documentId) {
+        return new Promise((resolve, reject) => {
+            try {
+                window.electronAPI.send('document-download', JSON.stringify(documentId));
+                window.electronAPI.receive('document-download-ready', (result) => {
+                    const downloadInfo = JSON.parse(result);
+                    // Handle the download using Electron dialog
+                    window.electronAPI.send('show-save-dialog', JSON.stringify({
+                        defaultPath: downloadInfo.originalName,
+                        filters: [
+                            { name: 'PDF Documents', extensions: ['pdf'] }
+                        ]
+                    }));
+                });
+                window.electronAPI.receive('document-error', (error) => reject(JSON.parse(error)));
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    static async syncDocuments() {
+        return new Promise((resolve, reject) => {
+            try {
+                window.electronAPI.send('document-sync', '');
+                window.electronAPI.receive('document-sync-complete', (result) => resolve(JSON.parse(result)));
+                window.electronAPI.receive('document-error', (error) => reject(JSON.parse(error)));
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
 }

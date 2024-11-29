@@ -68,6 +68,25 @@ $(document).ready(function () {
 
     // Initialize spec button state
     updateSpecButtonState();
+
+    // Initialize document upload handler
+    $('#document-upload').on('change', handleDocumentUpload);
+
+    // Disable file input if there's already an image
+    const $imageUpload = $('#image-upload');
+    const $preview = $('#image-preview');
+    
+    if ($preview.children().length > 0) {
+        $imageUpload.prop('disabled', true);
+    }
+
+    // Add change event listener for image upload
+    $imageUpload.on('change', handleImageUpload);
+
+    window.electronAPI.receive('import-excel-done', (result) => {
+        // show Toasts
+        showToast(JSON.parse(result).success, 'success');
+    });
 });
 
 // Page Initialization
@@ -75,6 +94,15 @@ function initializePage() {
     updateClock();
     setInterval(updateClock, 1000);
     loadModels();
+    
+    // Add auto-refresh for models list
+    setInterval(async () => {
+        // Only refresh if we're not in the middle of an operation
+        if (!$('#model-modal').is(':visible') && !$('#spec-modal').is(':visible')) {
+            console.log('🔄 Auto-refreshing models list...');
+            await loadModels();
+        }
+    }, 5000);
 }
 
 // Clock Functions
@@ -410,6 +438,10 @@ async function loadModels() {
     try {
         const models = await ModelService.getAllModels();
         const $modelsList = $('#models-list');
+        
+        // Store scroll position
+        const scrollPosition = $modelsList.scrollTop();
+        
         $modelsList.empty();
 
         if (models.length === 0) {
@@ -425,15 +457,34 @@ async function loadModels() {
             });
         }
 
+        // Restore scroll position
+        $modelsList.scrollTop(scrollPosition);
+
         updateModelDropdown(models);
         updateSpecButtonState();
+        
+        // If we have a selected model, make sure it's still highlighted
+        if (selectedModelId) {
+            const selectedModel = models.find(m => m.ModelId === selectedModelId);
+            if (selectedModel) {
+                $(`.list-item[data-model-id="${selectedModelId}"]`)
+                    .addClass('border-orange-500 border-2 translate-x-5 bg-orange-50');
+            } else {
+                // If the selected model no longer exists, clear the selection
+                selectedModelId = null;
+                $('#specs-list').empty();
+                updateSpecButtonState();
+            }
+        }
     } catch (error) {
+        console.error('Error loading models:', error);
         showToast(error.message, 'error');
     }
 }
 
 function createModelListItem(model) {
-    const div = $('<div class="list-item border rounded-lg p-4 cursor-pointer transition-all duration-200"></div>');
+    const div = $('<div class="list-item border rounded-lg p-4 cursor-pointer transition-all duration-200"></div>')
+        .attr('data-model-id', model.ModelId);
 
     // Add initial selected state if this is the selected model
     if (selectedModelId === model.ModelId) {
@@ -570,7 +621,22 @@ function createModelListItem(model) {
 
 async function loadModelForEdit(modelId) {
     try {
+        console.log('🔍 Loading model for edit:', modelId);
+        
+        // Sync documents first
+        console.log('📄 Starting document sync...');
+        await ModelService.syncDocuments();
+        console.log('📄 Document sync completed');
+        
+        // Then load the model
         const model = await ModelService.getModelById(modelId);
+        console.log('📄 Model loaded:', {
+            modelId: model.ModelId,
+            documentsCount: model.Documents?.length || 0,
+            documents: model.Documents,
+            partNo: model.PartNo
+        });
+
         const $form = $('#model-form');
 
         $form.find('[name="partNo"]').val(model.PartNo);
@@ -633,6 +699,68 @@ async function loadModelForEdit(modelId) {
             });
         } else {
             console.log('📸 No images found for model');
+        }
+
+        // Load and display documents
+        const $documentPreview = $('#document-preview');
+        $documentPreview.empty();
+
+        if (model.Documents && model.Documents.length > 0) {
+            console.log('📄 Processing documents:', {
+                count: model.Documents.length,
+                documents: model.Documents.map(d => ({
+                    fileName: d.FileName,
+                    originalName: d.OriginalName,
+                    fileSize: d.FileSize,
+                    documentId: d.DocumentId,
+                    modelId: d.ModelId
+                }))
+            });
+
+            model.Documents.forEach(doc => {
+                const $container = $('<div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg"></div>');
+                $container.html(`
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">${doc.OriginalName || doc.FileName}</p>
+                            <p class="text-xs text-gray-500">${formatFileSize(doc.FileSize)}</p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <a href="http://localhost:8123/pdfs/${encodeURIComponent(doc.FileName)}" 
+                           target="_blank"
+                           class="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                           title="View PDF">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </a>
+                        <button type="button" onclick="deleteDocument(${doc.DocumentId}, '${doc.FileName}')"
+                                class="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
+                                title="Delete PDF">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                `);
+
+                $documentPreview.append($container);
+            });
+        } else {
+            $documentPreview.append(`
+                <div class="text-center py-0 text-gray-500">
+                    <p class="font-medium">No documents attached</p>
+                </div>
+            `);
         }
     } catch (error) {
         console.error('❌ Error loading model:', error);
@@ -773,6 +901,35 @@ async function handleModelSubmit(e) {
             modelData.modelId = parseInt(editingId);
             await ModelService.updateModel(modelData);
 
+            // Handle document uploads
+            const documentPreviews = $('#document-preview > div');
+            if (documentPreviews.length > 0) {
+                console.log('📄 Processing', documentPreviews.length, 'documents');
+                for (const preview of documentPreviews) {
+                    const $preview = $(preview);
+                    const file = $preview.data('file');
+                    if (file) {
+                        try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('modelId', modelData.modelId.toString());
+                            
+                            console.log('📄 Uploading document:', {
+                                fileName: file.name,
+                                modelId: modelData.modelId,
+                                fileSize: file.size
+                            });
+                            
+                            await ModelService.uploadModelDocument(formData);
+                            console.log('📄 Document uploaded successfully:', file.name);
+                        } catch (docError) {
+                            console.error('❌ Error processing document:', docError);
+                            showToast(`Error processing document ${file.name}: ${docError.message}`, 'error');
+                        }
+                    }
+                }
+            }
+
             // Handle image uploads for existing model
             if (imageFiles && imageFiles.length > 0) {
                 console.log('📸 Processing', imageFiles.length, 'new images for update');
@@ -904,10 +1061,15 @@ async function handleSpecSubmit(e) {
             modelId: selectedModelId,
             specName: formData.get('specName'),
             equipName: formData.get('equipName'),
+            processName: formData.get('processName'),
             minValue: parseFloat(formData.get('minValue')),
             maxValue: parseFloat(formData.get('maxValue')),
             unit: formData.get('unit')
         };
+
+        if (!specData.processName) {
+            throw new Error('Please select a process');
+        }
 
         if (specData.minValue >= specData.maxValue) {
             throw new Error('Minimum value must be less than maximum value');
@@ -1082,57 +1244,76 @@ async function updateModelDropdown() {
 function handleImageUpload(event) {
     const files = event.target.files;
     const $preview = $('#image-preview');
+    const $imageUpload = $('#image-upload');
 
-    Array.from(files).forEach(file => {
-        // Check if file is an image
-        if (!file.type.startsWith('image/')) {
-            showToast('Please select only image files', 'error');
-            return;
-        }
+    // Check if there's already an image
+    if ($preview.children().length > 0) {
+        showToast('Only one image is allowed per model. Please remove the existing image first.', 'error');
+        // Clear the file input
+        $imageUpload.val('');
+        return;
+    }
 
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            // Create an image element to draw to canvas
-            const img = new Image();
-            img.onload = function () {
-                // Create canvas
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+    // Get the first file only
+    const file = files[0];
+    if (!file) return;
 
-                // Set canvas size to match image
-                canvas.width = img.width;
-                canvas.height = img.height;
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select only image files', 'error');
+        $imageUpload.val('');
+        return;
+    }
 
-                // Draw image to canvas with white background (for PNGs)
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        // Create an image element to draw to canvas
+        const img = new Image();
+        img.onload = function () {
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
 
-                // Convert to JPEG format
-                const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-                console.log('📸 JPEG Data URL:', jpegDataUrl);
-                // Create preview container
-                const $container = $('<div class="relative group"></div>');
-                $container.html(`
-                    <img src="${jpegDataUrl}" class="w-full h-10 object-cover rounded-lg" />
-                    <button type="button" 
-                            class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                `);
+            // Set canvas size to match image
+            canvas.width = img.width;
+            canvas.height = img.height;
 
-                // Store the converted image data
-                $container.data('imageData', jpegDataUrl);
+            // Draw image to canvas with white background (for PNGs)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
 
-                $container.find('button').on('click', () => $container.remove());
-                $preview.append($container);
-            };
-            img.src = e.target.result;
+            // Convert to JPEG format
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+            // Create preview container
+            const $container = $('<div class="relative group"></div>');
+            $container.html(`
+                <img src="${jpegDataUrl}" class="w-full h-32 object-cover rounded-lg" />
+                <button type="button" 
+                        class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            `);
+
+            // Store the converted image data
+            $container.data('imageData', jpegDataUrl);
+
+            // Add remove button handler
+            $container.find('button').on('click', () => {
+                $container.remove();
+                // Clear the file input so the same file can be selected again
+                $imageUpload.val('');
+            });
+
+            // Clear existing previews and add new one
+            $preview.empty().append($container);
         };
-        reader.readAsDataURL(file);
-    });
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 function createImagePreviewElement(image) {
@@ -1140,25 +1321,16 @@ function createImagePreviewElement(image) {
     $container.data('imageId', image.ImageId);
 
     const $img = $('<img>')
-        .addClass('w-full h-10 object-cover rounded-lg')
+        .addClass('w-full h-32 object-cover rounded-lg')
         .attr('alt', image.FileName);
 
     // Set the image source using base64 data
     if (image.Base64Data) {
-        console.log('📸 Loading base64 image:', image.FileName);
-        try {
-            // Base64Data already contains the full data URL, use it directly
-            console.log('📸 Image data URL length:', image.Base64Data.length);
-            console.log('📸 Image data URL:', image.Base64Data);
-            $img.attr('src', image.Base64Data);
-        } catch (error) {
-            console.error('❌ Error setting image source:', error);
-            // Set a placeholder or error image
-            $img.attr('src', '../images/placeholder.png');
-        }
+        const base64Data = image.Base64Data.startsWith('data:')
+            ? image.Base64Data
+            : `data:${image.ContentType};base64,${image.Base64Data}`;
+        $img.attr('src', base64Data);
     } else {
-        console.warn('⚠️ No base64 data found for image:', image.FileName);
-        // Set a placeholder image
         $img.attr('src', '../images/placeholder.png');
     }
 
@@ -1171,10 +1343,13 @@ function createImagePreviewElement(image) {
         </button>
     `);
 
+    // Add delete functionality
     $deleteButton.on('click', async () => {
         try {
             await ModelService.deleteModelImage(image.ImageId);
             $container.remove();
+            // Enable the file input after deleting
+            $('#image-upload').val('').prop('disabled', false);
             showToast('Image deleted successfully');
         } catch (error) {
             showToast(error.message, 'error');
@@ -1212,6 +1387,13 @@ async function editSpec(specId) {
             // Set the value
             $equipSelect.val(spec.EquipName).trigger('change');
             console.log('🔧 Equipment set to:', $equipSelect.val());
+        }
+
+        // Set process selection
+        const $processSelect = $form.find('[name="processName"]');
+        if (spec.ProcessName) {
+            console.log('🔧 Setting process:', spec.ProcessName);
+            $processSelect.val(spec.ProcessName);
         }
 
         $form.find('[name="minValue"]').val(spec.MinValue);
@@ -1419,4 +1601,91 @@ function showEquipModal() {
 
 function closeEquipModal() {
     $('#equip-modal').addClass('hidden');
+}
+
+// Handle document upload
+function handleDocumentUpload(event) {
+    const files = event.target.files;
+    const $preview = $('#document-preview');
+
+    Array.from(files).forEach(file => {
+        // Check if file is a PDF
+        if (file.type !== 'application/pdf') {
+            showToast('Please select only PDF files', 'error');
+            return;
+        }
+
+        // Create preview element
+        const $container = $('<div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg"></div>');
+        $container.html(`
+            <div class="flex items-center">
+                <svg class="w-6 h-6 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">${file.name}</p>
+                    <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                </div>
+            </div>
+            <button type="button" 
+                    class="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        `);
+
+        // Add remove functionality
+        $container.find('button').on('click', () => $container.remove());
+        
+        // Store the file data
+        $container.data('file', file);
+        
+        $preview.append($container);
+    });
+}
+
+// Add this helper function to format file sizes
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Add document management functions
+async function downloadDocument(documentId) {
+    try {
+        await ModelService.downloadModelDocument(documentId);
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteDocument(documentId, fileName) {
+    try {
+        const result = await PopupUtil.showConfirm({
+            title: 'Delete Document',
+            message: 'Are you sure you want to delete this document?',
+            type: 'danger',
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (result) {
+            await ModelService.deleteModelDocument({
+                documentId: documentId,
+                fileName: fileName
+            });
+            showToast('Document deleted successfully');
+            const modelId = $('#model-form').data('editing');
+            if (modelId) {
+                await loadModelForEdit(modelId);
+            }
+        }
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 }
