@@ -135,6 +135,7 @@ builder.Services.AddScoped<IIPCService, AuthIPCService>();
 builder.Services.AddScoped<IIPCService, UserIPCService>();
 builder.Services.AddScoped<IIPCService, ActionHistoryIPCService>();
 builder.Services.AddScoped<ActionHistoryService>();
+builder.Services.AddScoped<IIPCService, DBConfigIPCService>();
 
 // Add health checks
 builder.Services.AddHealthChecks();

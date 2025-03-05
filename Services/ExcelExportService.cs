@@ -16,8 +16,10 @@ namespace Services
     public class ExcelExportService
     {
         private readonly string _templatePath;
+        private readonly string _fallbackTemplatePath;
         private readonly ILogger<ExcelExportService> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private bool _isFallbackTemplate = false;
 
         // Define cell addresses as constants for better maintenance
         private static class DimenstionDC
@@ -48,15 +50,69 @@ namespace Services
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
-            _templatePath = Path.Combine(_webHostEnvironment.WebRootPath, "templates", "excel");
-            Directory.CreateDirectory(_templatePath);
+            _fallbackTemplatePath = Path.Combine(_webHostEnvironment.WebRootPath, "templates", "excel");
+            // @"wwwroot\templates\excel\models"
+            _templatePath = Path.Combine(_webHostEnvironment.WebRootPath, "templates", "excel", "models");
+            Directory.CreateDirectory(_fallbackTemplatePath);
+            if (!Directory.Exists(_templatePath))
+            {
+                Directory.CreateDirectory(_templatePath);
+            }
+        }
+        
+        private string ExtractPartNo(string fileName)
+        {
+            // Implement your logic to extract part numbers from file names
+            var match = System.Text.RegularExpressions.Regex.Match(fileName, @"[A-Z]{2,}\d{5,}");
+            return match.Success ? match.Value : string.Empty;
         }
 
-        public async Task<string> ExportMeasurementsToExcel(SpecificationData data, List<Product> products)
+        public async Task<string> ExportMeasurementsToExcel(SpecificationData data, List<Product> products, string processName = "LQC")
         {
             try
             {
-                var templatePath = Path.Combine(_templatePath, "measurement_template.xlsx");
+                _logger.LogInformation("Exporting measurements to Excel... process name: {processName}", processName);
+                var fallbackTemplatePath = Path.Combine(_fallbackTemplatePath, "measurement_template.xlsx");
+                var templatePath = "";
+
+                // Supported Excel file extensions
+                var supportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ".xlsx",
+                    ".xls",
+                    ".xlsm", // Macro-enabled workbook
+                    ".xltx", // Excel template
+                    ".xltm"  // Macro-enabled template
+                };
+
+                var regex = new System.Text.RegularExpressions.Regex(@"[A-Z]{2,5}\d{5,}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                // search for template in _templatePath
+                var templateFiles = Directory.GetFiles(_templatePath, "*.*", SearchOption.AllDirectories)
+                    .Where(file =>
+                    {
+                        var extension = Path.GetExtension(file); // Get the file extension
+                        return supportedExtensions.Contains(extension) && regex.IsMatch(Path.GetFileName(file)) && Path.GetFileName(file).Contains(processName, StringComparison.OrdinalIgnoreCase);
+                    })
+                    .Select(file => new FileInfoDto
+                    {
+                        FileName = Path.GetFileName(file),
+                        PartNo = ExtractPartNo(Path.GetFileName(file)),
+                        FullPath = file
+                    })
+                    .ToList();
+                // var templateFiles = Directory.GetFiles(_templatePath, data.PartNo + ".xlsx");
+                if (templateFiles.Count > 0)
+                {
+                    templatePath = templateFiles[0].FullPath;
+                }
+
+                if (templatePath == "")
+                {
+                    templatePath = fallbackTemplatePath;
+                    _isFallbackTemplate = true;
+                }
+
                 if (!File.Exists(templatePath))
                 {
                     throw new FileNotFoundException("Template file not found", templatePath);
@@ -65,60 +121,93 @@ namespace Services
                 using var workbook = new XLWorkbook(templatePath);
                 
                 // Get both worksheets
-                var dcWorksheet = workbook.Worksheet(1); // First sheet for DC process
-                var cncWorksheet = workbook.Worksheet(2); // Second sheet for CNC process
+                var dcWorksheet = workbook.Worksheets
+                    .FirstOrDefault(ws => ws.Name.Contains("Dimension DC", StringComparison.OrdinalIgnoreCase));
+                var cncWorksheet = workbook.Worksheets
+                    .FirstOrDefault(ws => ws.Name.Contains("Dimension CNC", StringComparison.OrdinalIgnoreCase));
+
+                if (dcWorksheet == null)
+                {
+                    dcWorksheet = workbook.Worksheets
+                        .FirstOrDefault(ws => ws.Name.Contains("2.Dimension DC", StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (cncWorksheet == null)
+                {
+                    cncWorksheet = workbook.Worksheets
+                        .FirstOrDefault(ws => ws.Name.Contains("4.Dimension CNC", StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (dcWorksheet == null)
+                {
+                    _logger.LogError("Không tìm thấy sheet 'Dimension DC' trong file template, fallback to fallback template");
+                    templatePath = fallbackTemplatePath;
+                    dcWorksheet = new XLWorkbook(templatePath).Worksheets
+                        .FirstOrDefault(ws => ws.Name.Contains("Dimension DC", StringComparison.OrdinalIgnoreCase));
+                    cncWorksheet = new XLWorkbook(templatePath).Worksheets
+                        .FirstOrDefault(ws => ws.Name.Contains("Dimension CNC", StringComparison.OrdinalIgnoreCase));
+                    _isFallbackTemplate = true;
+                }
 
                 // Filter specifications by process
-                var dcSpecs = data.Measurements.Where(m => m.ProcessName == "DC").ToList();
+                var dcSpecs = data.Measurements.Where(m => m.ProcessName == "LQC").ToList();
                 var cncSpecs = data.Measurements.Where(m => m.ProcessName == "CNC").ToList();
 
                 // Fill header information for both sheets
-                FillHeaderInformation(dcWorksheet, data);
-                FillHeaderInformation(cncWorksheet, data);
+                if (_isFallbackTemplate)
+                {
+                    FillHeaderInformation(dcWorksheet, data);
+                    FillHeaderInformation(cncWorksheet, data);
+                    // Fill specification data for each process
+                    FillSpecificationData(dcWorksheet, new SpecificationData 
+                    { 
+                        Customer = data.Customer,
+                        PartName = data.PartName,
+                        PartNo = data.PartNo,
+                        Material = data.Material,
+                        ProductionDate = data.ProductionDate,
+                        WorkOrder = data.WorkOrder,
+                        Process = data.Process,
+                        MachineName = data.MachineName,
+                        InspectorA = data.InspectorA,
+                        InspectorB = data.InspectorB,
+                        CheckedBy = data.CheckedBy,
+                        ApprovedBy = data.ApprovedBy,
+                        MoldNumber = data.MoldNumber,
+                        Measurements = dcSpecs
+                    });
+                    FillSpecificationData(cncWorksheet, new SpecificationData
+                    { 
+                        Customer = data.Customer,
+                        PartName = data.PartName,
+                        PartNo = data.PartNo,
+                        Material = data.Material,
+                        ProductionDate = data.ProductionDate,
+                        WorkOrder = data.WorkOrder,
+                        Process = data.Process,
+                        MachineName = data.MachineName,
+                        InspectorA = data.InspectorA,
+                        InspectorB = data.InspectorB,
+                        CheckedBy = data.CheckedBy,
+                        ApprovedBy = data.ApprovedBy,
+                        MoldNumber = data.MoldNumber,
+                        Measurements = cncSpecs
+                    }, 10);
+                }
 
-                // Fill specification data for each process
-                FillSpecificationData(dcWorksheet, new SpecificationData 
-                { 
-                    Customer = data.Customer,
-                    PartName = data.PartName,
-                    PartNo = data.PartNo,
-                    Material = data.Material,
-                    ProductionDate = data.ProductionDate,
-                    WorkOrder = data.WorkOrder,
-                    Process = data.Process,
-                    MachineName = data.MachineName,
-                    InspectorA = data.InspectorA,
-                    InspectorB = data.InspectorB,
-                    CheckedBy = data.CheckedBy,
-                    ApprovedBy = data.ApprovedBy,
-                    MoldNumber = data.MoldNumber,
-                    Measurements = dcSpecs
-                });
-                FillSpecificationData(cncWorksheet, new SpecificationData
-                { 
-                    Customer = data.Customer,
-                    PartName = data.PartName,
-                    PartNo = data.PartNo,
-                    Material = data.Material,
-                    ProductionDate = data.ProductionDate,
-                    WorkOrder = data.WorkOrder,
-                    Process = data.Process,
-                    MachineName = data.MachineName,
-                    InspectorA = data.InspectorA,
-                    InspectorB = data.InspectorB,
-                    CheckedBy = data.CheckedBy,
-                    ApprovedBy = data.ApprovedBy,
-                    MoldNumber = data.MoldNumber,
-                    Measurements = cncSpecs
-                }, 10);
-
-                // Fill measurement data for each process
-                FillMeasurementData(dcWorksheet, products, "DC");
-                FillMeasurementData(cncWorksheet, products, "CNC");
+                if (_isFallbackTemplate)
+                {
+                    // Fill measurement data for each process
+                    FillMeasurementData(dcWorksheet, products, "LQC");
+                    // FillMeasurementData(cncWorksheet, products, "CNC");
+                } else {
+                    FillMeasurementDataWithTracking(dcWorksheet, products, "LQC");
+                    // FillMeasurementDataWithTracking(cncWorksheet, products, "CNC");
+                }
 
                 // Save to temp file
                 var outputFileName = $"measurement_report_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
-                var outputPath = Path.Combine(_templatePath, "output", outputFileName);
+                var outputPath = Path.Combine(_fallbackTemplatePath, "output", outputFileName);
 
                 Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? "");
 
@@ -216,6 +305,67 @@ namespace Services
 
                         for (int specIndex = 0; specIndex < specs.Count; specIndex++)
                         {
+                            var spec = specs[specIndex];
+                            int currentRow = START_ROW + specIndex;
+
+                            var measurement = product.Measurements?
+                                .FirstOrDefault(m => m.SpecId == spec.SpecId);
+
+                            var cell = worksheet.Cell(currentRow, currentColumn);
+
+                            if (measurement != null)
+                            {
+                                cell.Value = Math.Round(measurement.MeasuredValue, 2);
+                            }
+                            else
+                            {
+                                cell.Value = "--";
+                            }
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Successfully filled measurement data for process {processName}", 
+                    processName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error filling measurement data for process {processName}", processName);
+                throw;
+            }
+        }
+        private void FillMeasurementDataWithTracking(IXLWorksheet worksheet, List<Product> products, string processName)
+        {
+            try
+            {
+                // find the cell with text: 'No1' or 'No 1' and get the row number
+                // var no1Cell = worksheet.CellsUsed().FirstOrDefault(c => c.Value.ToString() == "No1" || c.Value.ToString() == "No 1");
+                // int START_ROW = no1Cell?.Address.RowNumber + 1 ?? 12;
+                int START_ROW = 12;
+                int START_COLUMN = 7;
+
+                // Get specifications for the current process only
+                var specs = products
+                    .FirstOrDefault()
+                    ?.Model
+                    ?.Specifications
+                    ?.Where(s => s.ProcessName == processName)
+                    ?.OrderBy(s => s.SpecName)
+                    .ToList() ?? new List<ModelSpecification>();
+
+                if (products.Any())
+                {
+                    for (int productIndex = 0; productIndex < products.Count; productIndex++) 
+                    {
+                        _logger.LogInformation("Processing product {productIndex} for process {processName}", 
+                            productIndex, processName);
+                        
+                        var product = products[productIndex];
+                        int currentColumn = START_COLUMN + (productIndex * 2);
+
+                        for (int specIndex = 0; specIndex < specs.Count; specIndex++)
+                        {
+                            _logger.LogInformation("Processing spec {specIndex} for product {productIndex} for process {processName}", specIndex, productIndex, processName);
                             var spec = specs[specIndex];
                             int currentRow = START_ROW + specIndex;
 

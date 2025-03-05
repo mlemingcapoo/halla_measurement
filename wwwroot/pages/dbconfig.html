@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Transformation Task</title>
+    <link href="../css/output.css" rel="stylesheet">
+    <style>
+        /* Make select2 match your design */
+        .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-container--default .select2-selection--single {
+            height: 48px !important;
+            padding: 8px !important;
+            font-size: 1.5rem !important;
+            font-weight: 700 !important;
+            border-color: #e5e7eb !important;
+            border-radius: 0.5rem !important;
+            background-color: white !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 1.5 !important;
+            color: #111827 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            display: none !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__clear {
+            display: none !important;
+        }
+
+        #measurements-table thead {
+            position: sticky;
+            top: 0;
+            background: #F9FAFB;
+            z-index: 10;
+        }
+
+        #measurements-table th,
+        #measurements-table td {
+            min-width: 120px;
+            white-space: nowrap;
+        }
+
+        #measurements-table th:nth-child(1),
+        #measurements-table td:nth-child(1) {
+            position: sticky;
+            left: 0;
+            background: inherit;
+            z-index: 9;
+        }
+
+        .overflow-x-auto {
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .overflow-x-auto::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Add these measurement cell styles */
+        .measurement-cell {
+            padding: 1rem 1.5rem;
+            white-space: nowrap;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .measurement-cell.in-range {
+            background-color: rgb(187 247 208);
+            color: rgb(20 83 45);
+        }
+
+        .measurement-cell.out-of-range {
+            background-color: rgb(254 202 202);
+            color: rgb(127 29 29);
+        }
+
+        /* Table styles */
+        .table-cell-base {
+            padding: 1rem 1.5rem;
+            white-space: nowrap;
+            font-size: 0.875rem;
+        }
+
+        .table-header {
+            padding: 0.75rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: rgb(17 24 39);
+        }
+    </style>
+</head>
+
+<body class="bg-white min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg px-6 py-3 flex items-center justify-between">
+        <a href="../index.html" class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span class="ml-2 font-medium">Back</span>
+        </a>
+        <div class="flex items-center space-x-3">
+            <img src="../images/logo.png" alt="Halla Electronics Vina" class="h-10">
+            <span class="text-gray-900 font-semibold text-lg">HALLA ELECTRONICS VINA</span>
+        </div>
+        <h1 class="text-2xl font-bold text-orange-600">Database Configuration</h1>
+        <div class="text-gray-800 font-mono">
+            <span id="clock" class="text-lg"></span>
+            <div id="date" class="text-sm"></div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 space-y-6">
+        <!-- Database Configuration Form -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6">Database Connection Settings</h2>
+            
+            <form id="dbConfigForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Server -->
+                    <div>
+                        <label for="server" class="block text-sm font-medium text-gray-700">Server</label>
+                        <input type="text" id="server" name="server" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+                            placeholder="e.g. localhost">
+                    </div>
+
+                    <!-- Database -->
+                    <div>
+                        <label for="database" class="block text-sm font-medium text-gray-700">Database Name</label>
+                        <input type="text" id="database" name="database" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+                            placeholder="e.g. HallaMeasurements">
+                    </div>
+
+                    <!-- Username -->
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="username" name="username" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+                            placeholder="e.g. sa">
+                    </div>
+
+                    <!-- Password -->
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="password" name="password" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black">
+                    </div>
+
+                    <!-- Command Timeout -->
+                    <div>
+                        <label for="commandTimeout" class="block text-sm font-medium text-gray-700">Command Timeout (seconds)</label>
+                        <input type="number" id="commandTimeout" name="commandTimeout" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+                            placeholder="30">
+                    </div>
+
+                    <!-- Checkboxes -->
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="integratedSecurity" name="integratedSecurity"
+                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <label for="integratedSecurity" class="ml-2 block text-sm text-gray-700">
+                                Use Integrated Security
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" id="trustServerCertificate" name="trustServerCertificate"
+                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <label for="trustServerCertificate" class="ml-2 block text-sm text-gray-700">
+                                Trust Server Certificate
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" id="testConnection"
+                            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        Test Connection
+                    </button>
+                    <button type="submit" id="saveConfig"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="../js/PopupUtil.js"></script>
+
+    <!-- Import services first -->
+    <!-- <script src="../js/excel-service.js"></script> -->
+    
+    <!-- Import the dbconfig.js last -->
+    <script src="./js/dbconfig.js"></script>
+</body>
+
+</html>

@@ -151,6 +151,36 @@ async function loadProductMeasurements(modelId) {
     tableContainer.style.opacity = '1';
 }
 
+// Add this function after loadMoldsForModel
+function initializeProcessSelect() {
+    const $processSelect = $('#processSelect');
+    $processSelect.empty();
+    
+    // Add only CNC and DC options
+    const processes = ['IQC', 'LQC', 'OQC'];
+    processes.forEach(process => {
+        $processSelect.append(new Option(process, process));
+    });
+
+    // Select DC by default
+    $processSelect.val('LQC').trigger('change');
+
+    // Initialize Select2
+    $processSelect.select2({
+        placeholder: 'Select Process',
+        allowClear: false,
+        width: '80px !important',
+        dropdownParent: $('#processSelect').parent(),
+        minimumResultsForSearch: -1,
+        templateResult: function(data) {
+            return $('<span>' + data.text + '</span>');
+        },
+        templateSelection: function(data) {
+            return $('<span>' + data.text + '</span>');
+        }
+    });
+}
+
 // Export to Excel handler
 // document.getElementById('export-to-excel').addEventListener('click', () => {
 //     const modelId = document.getElementById('modelSelect').value;
@@ -240,7 +270,8 @@ let currentFilters = {
     dateFrom: null,
     dateTo: null,
     modelId: '',
-    moldNumber: ''
+    moldNumber: '',
+    process: ''
 };
 
 async function initializeFilters() {
@@ -263,11 +294,14 @@ async function initializeFilters() {
         modelFilter.appendChild(option);
     });
 
+    initializeProcessSelect();
+
     // Initialize Select2 for filters
     $('#modelFilter, #moldFilter').select2({
         width: '100%',
         placeholder: 'Select...',
-        allowClear: true
+        allowClear: true,
+        dropdownParent: $('#modelFilter').parent()
     });
 
     // Add reset function
@@ -279,6 +313,8 @@ async function initializeFilters() {
         // Reset model and mold selects
         $('#modelFilter').val('').trigger('change');
         $('#moldFilter').val('').trigger('change');
+        $('#processSelect').val('').trigger('change');
+
         
         // Apply the reset filters
         applyFilters();
@@ -295,7 +331,8 @@ async function applyFilters() {
         dateFrom: document.getElementById('dateFrom').value,
         dateTo: document.getElementById('dateTo').value,
         modelId: $('#modelFilter').val(),
-        moldNumber: $('#moldFilter').val()
+        moldNumber: $('#moldFilter').val(),
+        process: $('#processSelect').val()
     };
 
     console.log('🔍 Applying filters:', currentFilters);
@@ -314,6 +351,7 @@ async function loadFilteredSummary() {
     try {
         // Get all products first
         const allProducts = await ProductService.getAllProducts();
+        
         console.log('📦 All products loaded:', allProducts.length);
 
         // Apply filters
@@ -444,13 +482,18 @@ async function loadProductMeasurements(modelId, filteredProducts = null) {
     console.log('=== START MEASUREMENT LOADING ===');
     console.log('Loading measurements for ModelId:', modelId);
     
+    let processName = $('#processSelect').val();
+    
     const tableContainer = document.getElementById('measurements-table');
     tableContainer.style.opacity = '0.5';
 
     try {
         // Get model specifications
         console.log('1. Fetching specifications...');
-        const specs = await ModelSpecificationService.getSpecifications(modelId);
+        const allSpecs = await ModelSpecificationService.getSpecifications(modelId);
+        const specs = processName && processName !== 'ALL'
+            ? allSpecs.filter(spec => spec.ProcessName === processName)
+            : allSpecs;
         console.log('1.1 Specifications received:', specs);
 
         // Use filtered products if provided, otherwise fetch from server
@@ -482,6 +525,16 @@ async function loadProductMeasurements(modelId, filteredProducts = null) {
                 console.log(`4.1 Processing product ${index + 1}:`, product);
                 const measurements = product.Measurements || [];
                 console.log(`4.2 Measurements for product ${index + 1}:`, measurements);
+
+                // Check if all measurements for this product are empty
+                const hasAnyMeasurement = specs.some(spec => 
+                    measurements.some(m => m.SpecId === spec.SpecId)
+                );
+
+                // Skip this row if all measurements are empty
+                if (!hasAnyMeasurement) {
+                    return; // Skip to next product
+            }
 
                 tableHTML += `
                     <tr>
@@ -567,6 +620,7 @@ async function loadMoldsForModel(modelId) {
         $moldFilter.select2('destroy');
         $moldFilter.select2({
             width: '100%',
+            dropdownParent: $('#moldFilter').parent(),
             minimumResultsForSearch: uniqueMolds.length > 10 ? 0 : -1,
             templateResult: function(data) {
                 return $('<span>' + data.text + '</span>');
@@ -607,6 +661,13 @@ $('#modelFilter').on('change', async function() {
 // Update mold filter change handler
 $('#moldFilter').on('change', async function() {
     console.log('🔄 Mold filter changed:', $(this).val());
+    // Apply filters after mold change
+    await applyFilters();
+});
+
+// Update mold filter change handler
+$('#processSelect').on('change', async function() {
+    console.log('🔄 Process filter changed:', $(this).val());
     // Apply filters after mold change
     await applyFilters();
 });
@@ -681,7 +742,7 @@ async function handleExportToExcel() {
 
     try {
         console.log('🔄 Starting export for:', { currentModelId, currentMoldNumber });
-        const result = await ExcelService.exportMeasurementByModelAndMold(currentModelId, currentMoldNumber);
+        const result = await ExcelService.exportMeasurementByModelAndMold(currentModelId, currentMoldNumber, $('#processSelect').val()??'LQC');
         
         console.log('Export result:', result);
         

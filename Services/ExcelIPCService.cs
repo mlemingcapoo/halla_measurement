@@ -18,8 +18,8 @@ namespace Services
         private readonly ExcelFileService _excelFileService;
 
         public ExcelIPCService(
-            ILogger<ExcelIPCService> logger, 
-            ExcelExportService excelService, 
+            ILogger<ExcelIPCService> logger,
+            ExcelExportService excelService,
             IServiceScopeFactory scopeFactory,
             IWebHostEnvironment webHostEnvironment,
             ExcelFileService excelFileService)
@@ -129,12 +129,13 @@ namespace Services
 
                     var request = JsonSerializer.Deserialize<ExportMeasurementRequest>(args.ToString(), options);
                     
+                    
                     if (request == null)
                     {
                         throw new ArgumentNullException(nameof(request));
                     }
 
-                    _logger.LogInformation("Deserialized request: {@Request}", request);
+                    _logger.LogInformation("Serialized Request: {RequestJson}", JsonSerializer.Serialize(request));
 
                     var data = await PrepareSpecificationData(request);
 
@@ -149,7 +150,7 @@ namespace Services
                         products = products.Where(p => p.MoldNumber == request.Mold).ToList();
                     }
 
-                    var tempFilePath = await _excelService.ExportMeasurementsToExcel(data, products);
+                    var tempFilePath = await _excelService.ExportMeasurementsToExcel(data, products, request.Process??"LQC");
 
                     // Send success response with temp file path
                     Electron.IpcMain.Send(_window, "excel-export-complete", JsonSerializer.Serialize(new { 

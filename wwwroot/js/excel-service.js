@@ -11,7 +11,7 @@ class ExcelService {
         });
     }
 
-    static async exportMeasurementByModelAndMold(modelId, moldNumber = '') {
+    static async exportMeasurementByModelAndMold(modelId, moldNumber = '', process = 'LQC') {
         return new Promise((resolve, reject) => {
             try {
                 if (!modelId) {
@@ -31,7 +31,8 @@ class ExcelService {
                     inspectorA: "",
                     inspectorB: "",
                     checkedBy: "",
-                    approvedBy: ""
+                    approvedBy: "",
+                    process: process
                 };
 
                 console.log('📤 Sending export request:', data);

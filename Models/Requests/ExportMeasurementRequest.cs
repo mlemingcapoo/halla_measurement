@@ -8,4 +8,5 @@ public class ExportMeasurementRequest
     public string? InspectorB { get; set; }
     public string? CheckedBy { get; set; }
     public string? ApprovedBy { get; set; }
+    public string? Process { get; set; } = "LQC";
 }

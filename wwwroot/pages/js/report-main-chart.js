@@ -447,6 +447,8 @@ function updateMeasurementChart(products, specs) {
                     specIndex: index
                 });
 
+                
+
             } else {
                 // For daily view - group by date and calculate stats
                 const measurementsByDate = {};
@@ -530,6 +532,39 @@ function updateMeasurementChart(products, specs) {
                     hitRadius: 10,
                     specIndex: index
                 });
+
+                // // Add spec limits if available
+                // if (selectedSpec.MinValue !== null) {
+                    datasets.push({
+                        label: 'Spec Min',
+                        data: dailyStats.map(stat => ({
+                            x: new Date(stat.time),
+                            y: stat.min
+                        })),
+                        borderColor: 'rgba(0, 0, 0, 0.5)', // gray color with full opacity
+                        borderDash: [10, 5],
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        hitRadius: 0,
+                        fill: false
+                    });
+                // }
+
+                // if (selectedSpec.MaxValue !== null) {
+                    datasets.push({
+                        label: 'Spec Max',
+                        data: dailyStats.map(stat => ({
+                            x: new Date(stat.time),
+                            y: stat.max
+                        })),
+                        borderColor: 'rgba(0, 0, 0, 0.5)', // Green color with full opacity
+                        borderDash: [10, 5],
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        hitRadius: 0,
+                        fill: false
+                    });
+                // }
             }
 
         });

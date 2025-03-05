@@ -707,9 +707,9 @@ $('#modelSelect').on('change', async function() {
         await loadMoldsForModel(modelId);
         await updateModelDetails(modelId);
         
-        // Reset process select to 'DC' instead of 'ALL'
+        // Reset process select to 'LQC' instead of 'ALL'
         setTimeout(() => {
-            $('#processSelect').val('DC').trigger('change');
+            $('#processSelect').val('LQC').trigger('change');
         }, 100);
         
         await refreshMeasurementsTable();
@@ -864,13 +864,13 @@ function initializeProcessSelect() {
     $processSelect.empty();
     
     // Add only CNC and DC options
-    const processes = ['CNC', 'DC'];
+    const processes = ['IQC', 'LQC', 'OQC'];
     processes.forEach(process => {
         $processSelect.append(new Option(process, process));
     });
 
     // Select DC by default
-    $processSelect.val('DC').trigger('change');
+    $processSelect.val('LQC').trigger('change');
 
     // Initialize Select2
     $processSelect.select2({

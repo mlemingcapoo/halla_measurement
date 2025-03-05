@@ -73,26 +73,26 @@ class MeasurementProcess {
 
             // Get current selected process
             const selectedProcess = $('#processSelect').val();
-            if (!selectedProcess || !['CNC', 'DC'].includes(selectedProcess)) {
-                showToast('Please select a valid process (CNC or DC)', 'error');
+            if (!selectedProcess || !['LQC', 'IQC', 'OQC'].includes(selectedProcess)) {
+                showToast('Please select a valid process (LQC or IQC or OQC)', 'error');
                 return;
             }
 
             // Add CNC process confirmation
-            if (selectedProcess === 'CNC') {
-                PopupUtil.showConfirm({
-                    title: 'CNC Process Confirmation',
-                    message: 'Please confirm that the part has been properly cleaned and is ready for measurement.',
-                    type: 'info',
-                    confirmButtonText: 'Start Measuring',
-                    cancelButtonText: 'Cancel'
-                }).then(result => {
-                    if (result) {
-                        this.initializeForModel(modelSelect.value);
-                    }
-                });
-                return;
-            }
+            // if (selectedProcess === 'CNC') {
+            //     PopupUtil.showConfirm({
+            //         title: 'CNC Process Confirmation',
+            //         message: 'Please confirm that the part has been properly cleaned and is ready for measurement.',
+            //         type: 'info',
+            //         confirmButtonText: 'Start Measuring',
+            //         cancelButtonText: 'Cancel'
+            //     }).then(result => {
+            //         if (result) {
+            //             this.initializeForModel(modelSelect.value);
+            //         }
+            //     });
+            //     return;
+            // }
 
             this.initializeForModel(modelSelect.value);
             return;
@@ -220,8 +220,8 @@ class MeasurementProcess {
 
             // Get current selected process
             const selectedProcess = $('#processSelect').val();
-            if (!selectedProcess || !['CNC', 'DC'].includes(selectedProcess)) {
-                showToast('Please select a valid process (CNC or DC)', 'error');
+            if (!selectedProcess || !['LQC', 'IQC', 'OQC'].includes(selectedProcess)) {
+                showToast('Please select a valid process (LQC or IQC or OQC)', 'error');
                 return;
             }
 
@@ -562,7 +562,7 @@ class MeasurementProcess {
         confirmBtn.removeEventListener('click', confirmBtn.clickHandler);
         cancelBtn.removeEventListener('click', cancelBtn.clickHandler);
         input.removeEventListener('keydown', input.keyHandler);
-
+        document.removeEventListener('keydown', this.handleSpaceKey);
         // Setup handlers
         const handleConfirm = async () => {
             const moldNumber = input.value.trim();
@@ -1080,8 +1080,8 @@ class MeasurementProcess {
 
             // Get current selected process
             const selectedProcess = $('#processSelect').val();
-            if (!selectedProcess || !['CNC', 'DC'].includes(selectedProcess)) {
-                showToast('Invalid process selected', 'error');
+            if (!selectedProcess || !['LQC', 'IQC', 'OQC'].includes(selectedProcess)) {
+                showToast('Please select a valid process (LQC or IQC or OQC)', 'error');
                 return;
             }
 

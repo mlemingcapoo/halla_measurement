@@ -126,6 +126,20 @@ function updateMeasurementChart(products, specs) {
             const colorIndex = index % SPEC_COLORS.length;
             const mainColor = SPEC_COLORS[colorIndex];
 
+            // Get all measurements for this spec
+            const allMeasurements = filteredProducts
+            .flatMap(product => {
+                const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
+                if (measurement) {
+                    return [{
+                        time: new Date(product.MeasurementDate + 'Z'),
+                        value: measurement.Value
+                    }];
+                }
+                return [];
+            })
+            .sort((a, b) => a.time - b.time);
+
             if (isWithin24Hours) {
                 // For 24h view - show actual measurements
                 const measurements = filteredProducts
@@ -141,19 +155,7 @@ function updateMeasurementChart(products, specs) {
                     })
                     .sort((a, b) => a.time - b.time);
 
-                // Get all measurements for this spec
-                const allMeasurements = filteredProducts
-                    .flatMap(product => {
-                        const measurement = product.Measurements.find(m => m.SpecId === spec.SpecId);
-                        if (measurement) {
-                            return [{
-                                time: new Date(product.MeasurementDate + 'Z'),
-                                value: measurement.Value
-                            }];
-                        }
-                        return [];
-                    })
-                    .sort((a, b) => a.time - b.time);
+                
 
                 // Add actual values line
                 datasets.push({
